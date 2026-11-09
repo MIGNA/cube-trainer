@@ -29,6 +29,9 @@ Web Bluetooth exige HTTPS ou localhost ; test sur téléphone via `chrome://insp
 - `src/ble/` : `smart-cube.ts` définit l'interface `SmartCube` / `CubeEvent`, la seule dont dépend le reste de l'appli. `gan-cube.ts` adapte gan-web-bluetooth, `keyboard-cube.ts` est un faux cube clavier pour le dev sur PC. `cube-service.ts` est le point d'accès unique (`cubeStatus`, `onCubeEvent`, connexion/déconnexion, MAC mémorisée).
 - `src/timer/` : logique pure du chrono. `timer-machine.ts` (états idle/inspecting/holding/ready/running, temps injecté), `stats.ts` (moyennes WCA ; **Infinity = DNF**, null = indisponible), `format.ts` (tronqué au centième), `scramble.ts` (mélanges, voir plus bas).
 - `src/cube/` : `facelets.ts` = modèle du cube au format 54 facelets Kociemba (le même que le GAN envoie) ; permutations calculées par géométrie 3D, ne pas les écrire à la main. `scramble-tracker.ts` guide l'application du mélange (le cube n'envoie que des quarts de tour, R2 = R R) et calcule les corrections. `smart-session.ts` = machine à états du chrono connecté (needSolve → scrambling → inspecting/waiting → running) ; l'état réel du cube fait foi pour « résolu ».
+- `facelets.ts` gère aussi la notation étendue pour les algos (`r`/`Rw`, `M E S`, `x y z`) via `applyAlg`/`parseAnyAlg` ; `parseMove`/`parseAlg` restent limités aux faces (mélanges, cube connecté). `CROSS_GROUPS[face]` donne les autocollants croix / emplacements F2L / F2L / face de dernière couche relatifs à une face de croix.
+- `cases.ts` : tables OLL (57) et PLL (21) définies par un algo standard ; l'état d'un cas = résolu + algo inversé. Reconnaissance par signature invariante par AUF et rotation y, dernière couche en haut. Les tests vérifient que chaque algo préserve les F2L et que les cas sont distincts — mais pas que le numéro/nom est le bon : une inversion d'étiquettes (ex. Ja/Jb) ne serait pas détectée.
+- `cfop.ts` : `analyzeSolve(scramble, moves)` rejoue un solve et découpe croix / F2L 1-4 / OLL / PLL (reconnaissance, exécution, TPS, cas). Face de croix = croix terminée le plus tôt, puis F2L le plus tôt. Mouvements comptés en quarts de tour reçus.
 - `cube-service.ts` maintient `cubeFacelets` (mis à jour avant de notifier les abonnés) et `syncMismatch` (écart entre modèle et état renvoyé par le cube). Le cube clavier est supposé résolu à la connexion.
 - Mélanges : `generateScramble()` (random-state WCA via cubing.js en import dynamique + worker, un mélange d'avance ; `optimizeDeps.exclude: ["cubing"]` nécessaire en dev).
 - `src/storage/solves.ts` : tout l'historique est chargé en mémoire dans le signal `solves` (ancien → récent) ; passer par `addSolve`/`setPenalty`/`deleteSolve` pour garder base et signal synchronisés.
@@ -36,7 +39,7 @@ Web Bluetooth exige HTTPS ou localhost ; test sur téléphone via `chrome://insp
 
 ## Plan par étapes
 
-0 test BLE ✅ → 1 socle ✅ → 2 chrono manuel + ao5/ao12 ✅ → 3 intégration cube (suivi d'état, guidage du mélange, départ/arrêt auto) ✅ → 4 détection des étapes CFOP → 5 OLL/PLL en répétition espacée → 6 drills de croix → 7 programme quotidien ~20 min + streak → 8 finitions (export/import JSON…).
+0 test BLE ✅ → 1 socle ✅ → 2 chrono manuel + ao5/ao12 ✅ → 3 intégration cube (suivi d'état, guidage du mélange, départ/arrêt auto) ✅ → 4 analyse CFOP façon acubemy : 4a moteur ✅, 4b page détail d'un solve (tableau, reconstruction, replay), 4c statistiques par étape et par cas → 5 OLL/PLL en répétition espacée → 6 drills de croix → 7 programme quotidien ~20 min + streak → 8 finitions (export/import JSON…).
 
 ## Déploiement
 

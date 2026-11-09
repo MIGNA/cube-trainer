@@ -1,0 +1,185 @@
+// Tables des cas OLL (57) et PLL (21), et leur reconnaissance.
+//
+// Chaque cas est défini par un algorithme standard qui le résout (croix en bas,
+// dernière couche en haut). L'état du cas = cube résolu + algo inversé.
+// Les tests vérifient que chaque algo préserve les F2L, résout bien son cas et
+// que tous les cas sont distincts.
+//
+// Reconnaissance : on calcule une « signature » de la dernière couche, invariante
+// par rotation de la couche U (AUF) et du cube autour de l'axe vertical (y).
+
+import { SOLVED, applyAlg, invertAlg } from "./facelets";
+
+export interface CaseDef {
+  id: string;
+  name: string;
+  alg: string;
+}
+
+export const OLL_CASES: CaseDef[] = [
+  // Point (aucune arête orientée)
+  { id: "OLL 1", name: "Point", alg: "R U2 R2 F R F' U2 R' F R F'" },
+  { id: "OLL 2", name: "Point", alg: "F R U R' U' F' f R U R' U' f'" },
+  { id: "OLL 3", name: "Point", alg: "f R U R' U' f' U' F R U R' U' F'" },
+  { id: "OLL 4", name: "Point", alg: "f R U R' U' f' U F R U R' U' F'" },
+  { id: "OLL 17", name: "Point", alg: "R U R' U R' F R F' U2 R' F R F'" },
+  { id: "OLL 18", name: "Point", alg: "r U R' U R U2 r2 U' R U' R' U2 r" },
+  { id: "OLL 19", name: "Point", alg: "M U R U R' U' M' R' F R F'" },
+  { id: "OLL 20", name: "Point", alg: "r U R' U' M2 U R U' R' U' M'" },
+  // Carré
+  { id: "OLL 5", name: "Carré", alg: "r' U2 R U R' U r" },
+  { id: "OLL 6", name: "Carré", alg: "r U2 R' U' R U' r'" },
+  // Éclair
+  { id: "OLL 7", name: "Éclair", alg: "r U R' U R U2 r'" },
+  { id: "OLL 8", name: "Éclair", alg: "r' U' R U' R' U2 r" },
+  { id: "OLL 11", name: "Éclair", alg: "r U R' U R' F R F' R U2 r'" },
+  { id: "OLL 12", name: "Éclair", alg: "M' R' U' R U' R' U2 R U' R r'" },
+  { id: "OLL 39", name: "Éclair", alg: "L F' L' U' L U F U' L'" },
+  { id: "OLL 40", name: "Éclair", alg: "R' F R U R' U' F' U R" },
+  // Poisson
+  { id: "OLL 9", name: "Poisson", alg: "R U R' U' R' F R2 U R' U' F'" },
+  { id: "OLL 10", name: "Poisson", alg: "R U R' U R' F R F' R U2 R'" },
+  { id: "OLL 35", name: "Poisson", alg: "R U2 R2 F R F' R U2 R'" },
+  { id: "OLL 37", name: "Poisson", alg: "F R' F' R U R U' R'" },
+  // Cavalier
+  { id: "OLL 13", name: "Cavalier", alg: "F U R U' R2 F' R U R U' R'" },
+  { id: "OLL 14", name: "Cavalier", alg: "R' F R U R' F' R F U' F'" },
+  { id: "OLL 15", name: "Cavalier", alg: "r' U' r R' U' R U r' U r" },
+  { id: "OLL 16", name: "Cavalier", alg: "r U r' R U R' U' r U' r'" },
+  // Awkward
+  { id: "OLL 29", name: "Awkward", alg: "R U R' U' R U' R' F' U' F R U R'" },
+  { id: "OLL 30", name: "Awkward", alg: "F R' F R2 U' R' U' R U R' F2" },
+  { id: "OLL 41", name: "Awkward", alg: "R U R' U R U2 R' F R U R' U' F'" },
+  { id: "OLL 42", name: "Awkward", alg: "R' U' R U' R' U2 R F R U R' U' F'" },
+  // P
+  { id: "OLL 31", name: "P", alg: "R' U' F U R U' R' F' R" },
+  { id: "OLL 32", name: "P", alg: "L U F' U' L' U L F L'" },
+  { id: "OLL 43", name: "P", alg: "F' U' L' U L F" },
+  { id: "OLL 44", name: "P", alg: "F U R U' R' F'" },
+  // T
+  { id: "OLL 33", name: "T", alg: "R U R' U' R' F R F'" },
+  { id: "OLL 45", name: "T", alg: "F R U R' U' F'" },
+  // C
+  { id: "OLL 34", name: "C", alg: "R U R2 U' R' F R U R U' F'" },
+  { id: "OLL 46", name: "C", alg: "R' U' R' F R F' U R" },
+  // W
+  { id: "OLL 36", name: "W", alg: "L' U' L U' L' U L U L F' L' F" },
+  { id: "OLL 38", name: "W", alg: "R U R' U R U' R' U' R' F R F'" },
+  // Coins orientés
+  { id: "OLL 28", name: "Coins orientés", alg: "r U R' U' r' R U R U' R'" },
+  { id: "OLL 57", name: "Coins orientés", alg: "R U R' U' M' U R U' r'" },
+  // I
+  { id: "OLL 51", name: "I", alg: "F U R U' R' U R U' R' F'" },
+  { id: "OLL 52", name: "I", alg: "R U R' U R U' B U' B' R'" },
+  { id: "OLL 55", name: "I", alg: "R' F R U R U' R2 F' R2 U' R' U R U R'" },
+  { id: "OLL 56", name: "I", alg: "r' U' r U' R' U R U' R' U R r' U r" },
+  // Petit L
+  { id: "OLL 47", name: "Petit L", alg: "R' U' R' F R F' R' F R F' U R" },
+  { id: "OLL 48", name: "Petit L", alg: "F R U R' U' R U R' U' F'" },
+  { id: "OLL 49", name: "Petit L", alg: "r U' r2 U r2 U r2 U' r" },
+  { id: "OLL 50", name: "Petit L", alg: "r' U r2 U' r2 U' r2 U r'" },
+  { id: "OLL 53", name: "Petit L", alg: "r' U' R U' R' U R U' R' U2 r" },
+  { id: "OLL 54", name: "Petit L", alg: "r U R' U R U' R' U R U2 r'" },
+  // OCLL (croix orientée)
+  { id: "OLL 21", name: "H", alg: "R U2 R' U' R U R' U' R U' R'" },
+  { id: "OLL 22", name: "Pi", alg: "R U2 R2 U' R2 U' R2 U2 R" },
+  { id: "OLL 23", name: "Headlights", alg: "R2 D' R U2 R' D R U2 R" },
+  { id: "OLL 24", name: "Chameleon", alg: "r U R' U' r' F R F'" },
+  { id: "OLL 25", name: "Bowtie", alg: "F' r U R' U' r' F R" },
+  { id: "OLL 26", name: "Anti-Sune", alg: "R U2 R' U' R U' R'" },
+  { id: "OLL 27", name: "Sune", alg: "R U R' U R U2 R'" },
+];
+
+export const PLL_CASES: CaseDef[] = [
+  { id: "Aa", name: "Aa", alg: "x R' U R' D2 R U' R' D2 R2 x'" },
+  { id: "Ab", name: "Ab", alg: "x R2 D2 R U R' D2 R U' R x'" },
+  { id: "E", name: "E", alg: "x' R U' R' D R U R' D' R U R' D R U' R' D' x" },
+  { id: "F", name: "F", alg: "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R" },
+  { id: "Ga", name: "Ga", alg: "R2 U R' U R' U' R U' R2 U' D R' U R D'" },
+  { id: "Gb", name: "Gb", alg: "R' U' R U D' R2 U R' U R U' R U' R2 D" },
+  { id: "Gc", name: "Gc", alg: "R2 U' R U' R U R' U R2 U D' R U' R' D" },
+  { id: "Gd", name: "Gd", alg: "R U R' U' D R2 U' R U' R' U R' U R2 D'" },
+  { id: "H", name: "H", alg: "M2 U M2 U2 M2 U M2" },
+  { id: "Ja", name: "Ja", alg: "R' U L' U2 R U' R' U2 R L" },
+  { id: "Jb", name: "Jb", alg: "R U R' F' R U R' U' R' F R2 U' R'" },
+  { id: "Na", name: "Na", alg: "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'" },
+  { id: "Nb", name: "Nb", alg: "R' U R U' R' F' U' F R U R' F R' F' R U' R" },
+  { id: "Ra", name: "Ra", alg: "R U' R' U' R U R D R' U' R D' R' U2 R'" },
+  { id: "Rb", name: "Rb", alg: "R2 F R U R U' R' F' R U2 R' U2 R" },
+  { id: "T", name: "T", alg: "R U R' U' R' F R2 U' R' U' R U R' F'" },
+  { id: "Ua", name: "Ua", alg: "M2 U M U2 M' U M2" },
+  { id: "Ub", name: "Ub", alg: "M2 U' M U2 M' U' M2" },
+  { id: "V", name: "V", alg: "R' U R' U' y R' F' R2 U' R' U R' F R F" },
+  { id: "Y", name: "Y", alg: "F R U' R' U' R U R' F' R U R' U' R' F R F'" },
+  { id: "Z", name: "Z", alg: "M' U M2 U M2 U M' U2 M2" },
+];
+
+// --- Signatures -------------------------------------------------------------
+// Les fonctions ci-dessous supposent la dernière couche en haut (face U).
+
+/** Autocollants de la dernière couche : face U puis rangées du haut de F, R, B, L (sens cohérent). */
+const U_FACE = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const RING = [18, 19, 20, 9, 10, 11, 45, 46, 47, 36, 37, 38]; // F, R, B, L (gauche → droite)
+const SIDE_CENTERS = [22, 13, 49, 40]; // centres F, R, B, L
+
+function rotations(facelets: string): string[] {
+  const out = [facelets];
+  for (let k = 1; k < 4; k++) out.push(applyAlg(out[k - 1], "y"));
+  return out;
+}
+
+/** Signature OLL : quels autocollants de la dernière couche ont la couleur de U (min sur les 4 rotations y). */
+export function ollSignature(facelets: string): string {
+  return rotations(facelets)
+    .map((f) => {
+      const top = f[4];
+      return [...U_FACE, ...RING].map((i) => (f[i] === top ? "1" : "0")).join("");
+    })
+    .sort()[0];
+}
+
+/**
+ * Signature PLL : couleurs des 12 autocollants latéraux de la dernière couche, codées
+ * par rapport à l'ordre des centres (F R B L) puis décalées pour commencer à 0,
+ * minimum sur les 4 rotations. Invariant par AUF avant/après et par rotation y.
+ */
+export function pllSignature(facelets: string): string {
+  return rotations(facelets)
+    .map((f) => {
+      const order = SIDE_CENTERS.map((i) => f[i]);
+      const codes = RING.map((i) => order.indexOf(f[i]));
+      return codes.map((c) => (c - codes[0] + 4) % 4).join("");
+    })
+    .sort()[0];
+}
+
+/** Dernière couche orientée (face U d'une seule couleur). */
+export function isOriented(facelets: string): boolean {
+  return U_FACE.every((i) => facelets[i] === facelets[4]);
+}
+
+const SOLVED_PLL_SIGNATURE = pllSignature(SOLVED);
+
+function buildTable(cases: CaseDef[], signature: (f: string) => string): Map<string, CaseDef> {
+  const table = new Map<string, CaseDef>();
+  for (const c of cases) table.set(signature(applyAlg(SOLVED, invertAlg(c.alg))), c);
+  return table;
+}
+
+let ollTable: Map<string, CaseDef> | null = null;
+let pllTable: Map<string, CaseDef> | null = null;
+
+/** Cas OLL de l'état (dernière couche en haut, F2L faits). "skip" si déjà orienté, null si inconnu. */
+export function recognizeOll(facelets: string): CaseDef | "skip" | null {
+  if (isOriented(facelets)) return "skip";
+  ollTable ??= buildTable(OLL_CASES, ollSignature);
+  return ollTable.get(ollSignature(facelets)) ?? null;
+}
+
+/** Cas PLL de l'état (dernière couche en haut et orientée). "skip" si résolu à un AUF près, null si inconnu. */
+export function recognizePll(facelets: string): CaseDef | "skip" | null {
+  const sig = pllSignature(facelets);
+  if (sig === SOLVED_PLL_SIGNATURE) return "skip";
+  pllTable ??= buildTable(PLL_CASES, pllSignature);
+  return pllTable.get(sig) ?? null;
+}

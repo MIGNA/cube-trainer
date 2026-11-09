@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SOLVED, applyAlg, applyMove, invertAlg, isSolved, isValidFacelets, parseMove } from "./facelets";
+import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, applyMove, invertAlg, isSolved, isValidFacelets, parseMove } from "./facelets";
 
 const face = (facelets: string, f: number) => facelets.slice(f * 9, f * 9 + 9);
 // Ordre des faces : U R F D L B
@@ -76,5 +76,52 @@ describe("algorithmes", () => {
     expect(isSolved(SOLVED)).toBe(true);
     expect(isSolved("F".repeat(9) + SOLVED.slice(9))).toBe(true);
     expect(isSolved(applyMove(SOLVED, "R"))).toBe(false);
+  });
+});
+
+describe("notation étendue", () => {
+  const scrambled = applyAlg(SOLVED, "D2 F' R2 U B2 L' F2 R U2 F");
+  const same = (a: string, b: string) => expect(applyAlg(scrambled, a)).toBe(applyAlg(scrambled, b));
+
+  it("doubles couches : r = R M', Rw = r, u = U E'", () => {
+    same("r", "R M'");
+    same("Rw", "r");
+    same("u", "U E'");
+    same("f", "F S");
+  });
+
+  it("rotations : x = R M' L', y = U E' D', z = F S B'", () => {
+    same("x", "R M' L'");
+    same("y", "U E' D'");
+    same("z", "F S B'");
+  });
+
+  it("rotation × 4 = identité, et les parenthèses sont ignorées", () => {
+    same("x x x x", "");
+    same("(R U R' U')", "R U R' U'");
+  });
+
+  it("H-perm (M2 U M2 U2 M2 U M2) deux fois = identité", () => {
+    const h = "M2 U M2 U2 M2 U M2";
+    expect(applyAlg(SOLVED, `${h} ${h}`)).toBe(SOLVED);
+  });
+});
+
+describe("groupes CFOP", () => {
+  it("tailles : croix 8 autocollants, 4 emplacements de 5, F2L 33", () => {
+    for (const g of Object.values(CROSS_GROUPS)) {
+      expect(g.cross).toHaveLength(8);
+      expect(g.slots).toHaveLength(4);
+      for (const s of g.slots) expect(s).toHaveLength(5);
+      expect(g.f2l).toHaveLength(33);
+      expect(g.lastLayerFace).toHaveLength(9);
+    }
+  });
+
+  it("R U R' casse un seul emplacement de la croix D, sans casser la croix", () => {
+    const s = applyAlg(SOLVED, "R U R'");
+    const g = CROSS_GROUPS.D;
+    expect(allSolved(s, g.cross)).toBe(true);
+    expect(g.slots.filter((slot) => allSolved(s, slot))).toHaveLength(3);
   });
 });
