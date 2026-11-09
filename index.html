@@ -4,49 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#111418" />
-    <title>Cube Trainer — test Bluetooth</title>
+    <meta name="description" content="Chrono et entraînement quotidien au Rubik's Cube, avec cube connecté." />
+    <title>Cube Trainer</title>
   </head>
   <body>
-    <main>
-      <h1>Test Bluetooth GAN</h1>
-
-      <section class="card">
-        <div class="row">
-          <button id="connect">Connecter le cube</button>
-          <button id="disconnect" disabled>Déconnecter</button>
-        </div>
-        <label class="mac">
-          Adresse MAC (seulement si la détection automatique échoue)
-          <input id="mac" placeholder="AB:12:CD:34:EF:56" autocomplete="off" spellcheck="false" />
-        </label>
-        <p id="status" class="status">Non connecté</p>
-      </section>
-
-      <section class="card">
-        <h2>Cube</h2>
-        <dl class="info">
-          <dt>Nom</dt><dd id="name">—</dd>
-          <dt>MAC</dt><dd id="device-mac">—</dd>
-          <dt>Matériel</dt><dd id="hardware">—</dd>
-          <dt>Batterie</dt><dd id="battery">—</dd>
-          <dt>Résolu</dt><dd id="solved">—</dd>
-        </dl>
-        <div class="row">
-          <button id="req-facelets" disabled>Lire l'état</button>
-          <button id="req-reset" disabled>Marquer comme résolu</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Mouvements <span id="move-count" class="muted">(0)</span></h2>
-        <p id="moves" class="moves">—</p>
-      </section>
-
-      <section class="card">
-        <h2>Journal</h2>
-        <pre id="log"></pre>
-      </section>
-    </main>
+    <div id="app">
+      <main id="view"></main>
+      <nav id="tabbar" aria-label="Navigation principale"></nav>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
