@@ -1,0 +1,20 @@
+{
+  "name": "cube-trainer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/web-bluetooth": "^0.0.22",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7"
+  },
+  "dependencies": {
+    "gan-web-bluetooth": "^3.0.2"
+  }
+}
