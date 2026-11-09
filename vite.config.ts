@@ -6,6 +6,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  // cubing.js lance un worker via new URL(…, import.meta.url) : le pré-bundling
+  // de Vite en dev casserait ce chemin.
+  optimizeDeps: {
+    exclude: ["cubing"],
+  },
   plugins: [
     VitePWA({
       registerType: "autoUpdate",

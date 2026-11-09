@@ -2,14 +2,16 @@ import type { View } from "../../app/router";
 import {
   connectGanCube,
   connectKeyboardCube,
+  cubeFacelets,
   cubeStatus,
   disconnectCube,
   getCube,
   isWebBluetoothAvailable,
   onCubeEvent,
+  syncMismatch,
   type CubeStatus,
 } from "../../ble/cube-service";
-import { SOLVED_FACELETS } from "../../ble/smart-cube";
+import { isSolved } from "../../cube/facelets";
 import { getStorageInfo, requestPersistence } from "../../storage/persistence";
 import { getSetting, setSetting } from "../../storage/settings";
 import { h } from "../dom";
@@ -51,7 +53,7 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
   const connectBtn = h("button", { onclick: () => void connectGanCube(macInput.value) }, "Connecter le cube");
   const keyboardBtn = h("button", { class: "secondary", onclick: () => void connectKeyboardCube() }, "Cube clavier (dev)");
   const disconnectBtn = h("button", { class: "secondary", onclick: () => void disconnectCube() }, "Déconnecter");
-  const readBtn = h("button", { class: "secondary", onclick: () => void getCube()?.requestFacelets() }, "Lire l'état");
+  const readBtn = h("button", { class: "secondary", onclick: () => void getCube()?.requestFacelets() }, "Vérifier la synchro");
   const resetBtn = h("button", { class: "secondary", onclick: () => void getCube()?.markSolved() }, "Marquer comme résolu");
 
   const info = {
@@ -59,6 +61,7 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
     hardware: h("dd", {}, "—"),
     battery: h("dd", {}, "—"),
     solved: h("dd", {}, "—"),
+    sync: h("dd", {}, "—"),
   };
   const movesEl = h("p", { class: "moves" }, "—");
   let moves: string[] = [];
@@ -75,7 +78,15 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
     info.id.textContent = connected ? s.id : "—";
     info.hardware.textContent = (connected && s.hardware) || "—";
     info.battery.textContent = connected && s.battery != null ? `${s.battery} %` : "—";
-    if (!connected) info.solved.textContent = "—";
+  });
+
+  const unsubFacelets = cubeFacelets.subscribe((f) => {
+    info.solved.textContent = f == null ? "—" : isSolved(f) ? "oui ✅" : "non";
+  });
+
+  const unsubSync = syncMismatch.subscribe((mismatch) => {
+    if (cubeFacelets.get() == null) info.sync.textContent = "—";
+    else info.sync.textContent = mismatch ? "⚠ écart détecté (corrigé avec l'état du cube)" : "OK ✅";
   });
 
   const unsubEvents = onCubeEvent((e) => {
@@ -83,7 +94,8 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
       moves = [...moves, e.move].slice(-MAX_MOVES_SHOWN);
       movesEl.textContent = moves.join(" ");
     } else if (e.type === "facelets") {
-      info.solved.textContent = e.facelets === SOLVED_FACELETS ? "oui ✅" : "non";
+      // Rafraîchit l'affichage même si la valeur de syncMismatch n'a pas changé.
+      info.sync.textContent = syncMismatch.get() ? "⚠ écart détecté (corrigé avec l'état du cube)" : "OK ✅";
     }
   });
 
@@ -103,6 +115,7 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
       h("dt", {}, "Matériel"), info.hardware,
       h("dt", {}, "Batterie"), info.battery,
       h("dt", {}, "Résolu"), info.solved,
+      h("dt", {}, "Synchro"), info.sync,
     ),
     h("div", { class: "row" }, readBtn, resetBtn),
     h("h3", {}, "Derniers mouvements"),
@@ -114,6 +127,8 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
     el,
     cleanup: () => {
       unsubStatus();
+      unsubFacelets();
+      unsubSync();
       unsubEvents();
     },
   };

@@ -37,7 +37,7 @@ export interface SmartCube {
   disconnect(): Promise<void>;
 }
 
-export const SOLVED_FACELETS = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB";
+export { SOLVED as SOLVED_FACELETS } from "../cube/facelets";
 
 /** Petit émetteur partagé par les implémentations. */
 export function createEmitter() {

@@ -187,3 +187,23 @@ body.timing #tabbar { display: none; }
 .solve-date { grid-area: date; font-size: 0.75rem; }
 .solve-open { padding: 0 0 12px; }
 .solve-details .row { margin-top: 8px; }
+
+/* --- Chrono connecté -------------------------------------------------- */
+
+.mode-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: #2a323d;
+  color: var(--muted);
+}
+.mode-badge.on { background: rgba(60, 207, 122, 0.15); color: var(--ok); }
+
+.scramble.dim { opacity: 0.4; }
+.step.done { color: var(--muted); opacity: 0.45; }
+.step.current { color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.corrections { margin: 6px 0 0; min-height: 1.2em; color: #ffcc4d; font-family: ui-monospace, monospace; }
+
+.timer-zone .cancel { flex: none; margin-top: 24px; }

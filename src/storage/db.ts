@@ -14,8 +14,15 @@ export interface Solve {
   penalty: Penalty;
   scramble: string;
   source: "manual" | "cube";
-  /** Mouvements enregistrés par le cube connecté, si disponible. */
-  moves?: string[];
+  /** Mouvements enregistrés par le cube connecté, si disponible (servira à l'analyse CFOP). */
+  moves?: SolveMove[];
+}
+
+export interface SolveMove {
+  /** Mouvement en notation standard ("R", "U'"…). */
+  m: string;
+  /** Temps en ms depuis le premier mouvement du solve. */
+  t: number;
 }
 
 interface CubeTrainerDB extends DBSchema {

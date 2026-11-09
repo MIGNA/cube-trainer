@@ -1,8 +1,11 @@
 // Point d'accès unique au cube connecté pour toute l'appli.
 // - `cubeStatus` : état de connexion observable par les vues.
 // - `onCubeEvent` : abonnement aux événements, qui survit aux reconnexions.
+// - `cubeFacelets` : état du cube suivi en continu (null = inconnu). Il est mis à
+//   jour AVANT de notifier les abonnés : un abonné à "move" lit l'état d'après le mouvement.
 
 import { signal } from "../app/signal";
+import { SOLVED, applyMove, isValidFacelets } from "../cube/facelets";
 import { getSetting, setSetting } from "../storage/settings";
 import { connectGan } from "./gan-cube";
 import { connectKeyboard } from "./keyboard-cube";
@@ -22,6 +25,15 @@ export type CubeStatus =
   | { state: "error"; message: string };
 
 export const cubeStatus = signal<CubeStatus>({ state: "disconnected" });
+
+/** État actuel du cube (54 facelets, ordre Kociemba), ou null s'il est inconnu. */
+export const cubeFacelets = signal<string | null>(null);
+
+/**
+ * Vrai si le cube a renvoyé un état différent de celui calculé par l'appli
+ * (mouvement perdu, ou erreur du modèle). Remis à faux à chaque resynchronisation correcte.
+ */
+export const syncMismatch = signal(false);
 
 const listeners = new Set<CubeListener>();
 let current: SmartCube | null = null;
@@ -44,7 +56,17 @@ export function isWebBluetoothAvailable(): boolean {
 
 function handleEvent(event: CubeEvent): void {
   const status = cubeStatus.get();
-  if (event.type === "battery" && status.state === "connected") {
+  if (event.type === "move") {
+    const facelets = cubeFacelets.get();
+    if (facelets) cubeFacelets.set(applyMove(facelets, event.move));
+  } else if (event.type === "facelets") {
+    if (isValidFacelets(event.facelets)) {
+      const expected = cubeFacelets.get();
+      syncMismatch.set(expected != null && expected !== event.facelets);
+      if (syncMismatch.get()) console.warn("Écart entre le modèle et le cube", { expected, actual: event.facelets });
+      cubeFacelets.set(event.facelets);
+    }
+  } else if (event.type === "battery" && status.state === "connected") {
     cubeStatus.set({ ...status, battery: event.level });
   } else if (event.type === "hardware" && status.state === "connected") {
     const parts = [event.name, event.hardwareVersion && `hw ${event.hardwareVersion}`, event.softwareVersion && `sw ${event.softwareVersion}`];
@@ -53,6 +75,8 @@ function handleEvent(event: CubeEvent): void {
     unsubscribeCurrent?.();
     unsubscribeCurrent = null;
     current = null;
+    cubeFacelets.set(null);
+    syncMismatch.set(false);
     cubeStatus.set({ state: "disconnected" });
   }
   for (const l of listeners) l(event);
@@ -61,6 +85,9 @@ function handleEvent(event: CubeEvent): void {
 async function attach(cube: SmartCube): Promise<void> {
   current = cube;
   unsubscribeCurrent = cube.subscribe(handleEvent);
+  // Le faux cube clavier n'a pas de capteur : on le suppose résolu au départ.
+  cubeFacelets.set(cube.kind === "keyboard" ? SOLVED : null);
+  syncMismatch.set(false);
   cubeStatus.set({ state: "connected", kind: cube.kind, name: cube.name, id: cube.id });
   await cube.requestHardware();
   await cube.requestFacelets();
