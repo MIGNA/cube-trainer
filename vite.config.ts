@@ -2,7 +2,10 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import pkg from "./package.json" with { type: "json" };
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // En production, l'appli est servie par GitHub Pages sous /cube-trainer/
+  // (https://migna.github.io/cube-trainer/). En dev, à la racine.
+  base: command === "build" ? "/cube-trainer/" : "/",
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
@@ -35,4 +38,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

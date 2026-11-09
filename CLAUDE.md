@@ -37,3 +37,7 @@ Web Bluetooth exige HTTPS ou localhost ; test sur téléphone via `chrome://insp
 ## Plan par étapes
 
 0 test BLE ✅ → 1 socle ✅ → 2 chrono manuel + ao5/ao12 ✅ → 3 intégration cube (suivi d'état, guidage du mélange, départ/arrêt auto) ✅ → 4 détection des étapes CFOP → 5 OLL/PLL en répétition espacée → 6 drills de croix → 7 programme quotidien ~20 min + streak → 8 finitions (export/import JSON…).
+
+## Déploiement
+
+GitHub Pages via `.github/workflows/deploy.yml` (push sur `main` → `npm ci`, `npm test`, `npm run build`, publication). URL : https://migna.github.io/cube-trainer/. Le `base` Vite vaut `/cube-trainer/` en build et `/` en dev : utiliser des chemins relatifs ou `import.meta.env.BASE_URL`, jamais de chemin absolu codé en dur. Les données IndexedDB sont propres à chaque origine (dev ≠ prod).

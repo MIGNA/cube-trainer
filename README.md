@@ -19,3 +19,9 @@ Web Bluetooth exige HTTPS ou `localhost`. Le plus simple :
 3. Lancer `npm run dev`, puis ouvrir `http://localhost:5173` dans Chrome sur le téléphone.
 
 Pour que la MAC du cube soit détectée automatiquement, activer `chrome://flags/#enable-experimental-web-platform-features` sur le téléphone. Sinon, la saisir à la main dans la page.
+
+## Déploiement
+
+L'appli est publiée sur **https://migna.github.io/cube-trainer/** par GitHub Actions (`.github/workflows/deploy.yml`) à chaque push sur `main` : tests, build, puis mise en ligne sur GitHub Pages.
+
+Sur le téléphone : ouvrir l'adresse dans Chrome, puis menu ⋮ → **Ajouter à l'écran d'accueil** / **Installer l'application**. L'appli fonctionne ensuite hors ligne et se met à jour automatiquement.
