@@ -11,7 +11,7 @@ import {
 } from "../../ble/cube-service";
 import { SOLVED_FACELETS } from "../../ble/smart-cube";
 import { getStorageInfo, requestPersistence } from "../../storage/persistence";
-import { getSetting } from "../../storage/settings";
+import { getSetting, setSetting } from "../../storage/settings";
 import { h } from "../dom";
 
 const MAX_MOVES_SHOWN = 30;
@@ -119,6 +119,24 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
   };
 }
 
+function timerSection(): HTMLElement {
+  const inspection = h("input", { type: "checkbox" });
+  void getSetting("inspectionEnabled").then((v) => (inspection.checked = v));
+  inspection.addEventListener("change", () => void setSetting("inspectionEnabled", inspection.checked));
+
+  return h(
+    "section",
+    { class: "card" },
+    h("h2", {}, "Chrono"),
+    h(
+      "label",
+      { class: "toggle" },
+      inspection,
+      h("span", {}, "Inspection de 15 s (WCA)", h("small", { class: "muted" }, "+2 au-delà de 15 s, DNF au-delà de 17 s")),
+    ),
+  );
+}
+
 function dataSection(): HTMLElement {
   const persisted = h("dd", {}, "…");
   const usage = h("dd", {}, "…");
@@ -153,6 +171,7 @@ export const settingsView: View = {
     const cube = cubeSection();
     container.append(
       h("h1", {}, "Réglages"),
+      timerSection(),
       cube.el,
       dataSection(),
       h("p", { class: "muted version" }, `Cube Trainer v${__APP_VERSION__}`),
