@@ -295,6 +295,7 @@ a.case-card { text-decoration: none; }
 .case-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
 .case-filters button { flex: none; padding: 6px 12px; font-size: 0.8rem; border-radius: 999px; }
 .case-filters button.selected { outline: none; background: var(--accent); color: #fff; }
+.case-filters .filter-count { opacity: 0.7; }
 .case-count { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
 
 .case-head { display: flex; align-items: center; gap: 16px; }
@@ -346,3 +347,14 @@ body.timing .cube-button { display: none; }
 /* Laisse la place au bouton à côté du premier élément de chaque page. */
 #view > :first-child { margin-right: 52px; }
 #view > .scramble-box:first-child { margin-left: 52px; } /* mélange du chrono : reste centré */
+
+/* Blocs OLL/PLL repliables de l'onglet Algos */
+.case-block > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.case-block > summary::-webkit-details-marker { display: none; }
+.case-block > summary h2 { margin: 0; flex: 1; }
+.case-block > summary::after { content: "›"; color: var(--muted); font-size: 1.4rem; line-height: 1; transition: transform 0.15s; }
+.case-block[open] > summary::after { transform: rotate(90deg); }
+.case-block[open] > summary { margin-bottom: 10px; }
+.case-group + .case-group { margin-top: 14px; }
+.case-group-title { margin: 0 0 8px; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.case-group-hint { margin: -4px 0 10px; }

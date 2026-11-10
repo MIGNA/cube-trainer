@@ -11,7 +11,7 @@
 // Passer de l'un à l'autre échange U↔D et R↔L (TO_CUBE).
 
 import { caseView, lastLayerView, type LastLayerView } from "./case-diagram";
-import { OLL_CASES, checkCaseAlg, type CaseDef } from "./cases";
+import { caseKind, checkCaseAlg, type CaseDef, type CaseKind } from "./cases";
 import { FACES, OPPOSITE, SOLVED, applyAlg, formatTurn, invertAlg, isSolved, parseAlg, parseAnyAlg, type Face, type Turn } from "./facelets";
 import { CORNERS, EDGES, readOrbit, type OrbitState } from "./pieces";
 
@@ -106,10 +106,17 @@ const formatTurns = (turns: readonly Turn[]) => turns.map(formatTurn).join(" ");
 const AUFS = ["", "U", "U2", "U'"];
 const Y_TURNS = ["", "y", "y2", "y'"];
 
-/** Clé de comparaison de deux schémas : motif jaune pour une OLL, schéma complet pour une PLL. */
-export function viewKey(view: LastLayerView, kind: "oll" | "pll"): string {
+/**
+ * Clé de comparaison de deux schémas : motif jaune pour une OLL, motif jaune des
+ * arêtes seules pour une croix, schéma complet pour une PLL.
+ */
+export function viewKey(view: LastLayerView, kind: CaseKind): string {
   if (kind === "pll") return JSON.stringify(view);
   const yellow = (faces: Face[]) => faces.map((f) => (f === "U" ? 1 : 0)).join("");
+  if (kind === "eo") {
+    const top = [1, 3, 5, 7].map((i) => view.top[i]);
+    return [top, ...(["B", "F", "L", "R"] as const).map((s) => [view.sides[s][1]])].map(yellow).join("|");
+  }
   return [view.top, view.sides.B, view.sides.F, view.sides.L, view.sides.R].map(yellow).join("|");
 }
 
@@ -118,7 +125,7 @@ export function viewKey(view: LastLayerView, kind: "oll" | "pll"): string {
  * le cas apparaisse sous le même angle que son schéma.
  */
 export function shortestSetup(c: CaseDef, algs: readonly string[]): string {
-  const kind = OLL_CASES.includes(c) ? "oll" : "pll";
+  const kind = caseKind(c);
   const diagram = viewKey(caseView(c.alg), kind);
   let best: Turn[] | null = null;
   for (const alg of algs) {

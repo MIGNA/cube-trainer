@@ -2,7 +2,7 @@
 // (qui est toujours la première suggestion). Les tests vérifient que chacun résout
 // bien son cas sans casser les F2L.
 
-import { OLL_CASES, PLL_CASES, type CaseDef } from "./cases";
+import { EO_CASES, OLL_CASES, PLL_CASES, type CaseDef } from "./cases";
 
 const ALTERNATIVES: Record<string, string[]> = {
   // PLL
@@ -24,6 +24,9 @@ const ALTERNATIVES: Record<string, string[]> = {
   V: ["R U' R U R' D R D' R U' D R2 U R2 D' R2"],
   Y: ["F R' F R2 U' R' U' R U R' F' R U R' U' F'"],
   Z: ["M2 U M2 U M' U2 M2 U2 M'", "R' U' R U' R U R U' R' U R U R2 U' R'"],
+  // Croix (2-look)
+  "Croix point": ["f R U R' U' f' U' F R U R' U' F'"],
+  "Croix L": ["F U R U' R' F'"],
   // OLL
   "OLL 2": ["F R U R' U' S R U R' U' f'"],
   "OLL 3": ["r' R2 U R' U r U2 r' U M'"],
@@ -64,7 +67,40 @@ const ALTERNATIVES: Record<string, string[]> = {
   "OLL 56": ["F R U R' U' R F' r U R' U' r'"],
 };
 
-export const ALL_CASES: CaseDef[] = [...PLL_CASES, ...OLL_CASES];
+export const ALL_CASES: CaseDef[] = [...PLL_CASES, ...OLL_CASES, ...EO_CASES];
+
+/** Ensembles d'algos proposés dans l'onglet Algos. */
+export type AlgSet = "cfop" | "2look" | "beginner";
+
+/** Groupe de cas affichés ensemble (avec un intitulé pour les temps du 2-look). */
+export interface CaseGroup {
+  label?: string;
+  /** Astuce affichée sous l'intitulé. */
+  hint?: string;
+  cases: CaseDef[];
+}
+
+const byIds = (list: CaseDef[], ids: string[]) => ids.map((id) => list.find((c) => c.id === id)!);
+
+/** Cas de chaque ensemble, par bloc (OLL au sens large : croix + OLL). Débutant : à venir. */
+export const SET_CASES: Record<AlgSet, { oll: CaseGroup[]; pll: CaseGroup[] }> = {
+  cfop: { oll: [{ cases: OLL_CASES }], pll: [{ cases: PLL_CASES }] },
+  "2look": {
+    oll: [
+      { label: "1er temps : la croix", cases: EO_CASES },
+      { label: "2e temps : les coins", cases: byIds(OLL_CASES, ["OLL 21", "OLL 22", "OLL 23", "OLL 24", "OLL 25", "OLL 26", "OLL 27"]) },
+    ],
+    pll: [
+      {
+        label: "1er temps : les coins",
+        hint: "Pas de phares (deux coins de même couleur côte à côte) ? Fais un A depuis n'importe quel angle : des phares apparaissent, puis refais un A.",
+        cases: byIds(PLL_CASES, ["Aa", "Ab"]),
+      },
+      { label: "2e temps : les arêtes", cases: byIds(PLL_CASES, ["Ua", "Ub", "H", "Z"]) },
+    ],
+  },
+  beginner: { oll: [], pll: [] },
+};
 
 export function findCase(id: string): CaseDef | undefined {
   return ALL_CASES.find((c) => c.id === id);

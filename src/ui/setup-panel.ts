@@ -6,7 +6,7 @@
 
 import { cubeFacelets, cubeStatus, onCubeEvent } from "../ble/cube-service";
 import { CROSS_GROUPS, allSolved } from "../cube/facelets";
-import { OLL_CASES, isOriented, recognizeOll, recognizePll, type CaseDef } from "../cube/cases";
+import { showsCaseState, type CaseDef } from "../cube/cases";
 import { ScrambleTracker } from "../cube/scramble-tracker";
 import { setupFromState, shortestSetup, switchFrame, toPlayerView } from "../cube/setup";
 import { h } from "./dom";
@@ -22,7 +22,7 @@ export interface SetupPanel {
 function showsCase(cube: string, c: CaseDef): boolean {
   const state = toPlayerView(cube);
   if (!allSolved(state, CROSS_GROUPS.D.f2l)) return false;
-  return OLL_CASES.includes(c) ? recognizeOll(state) === c : isOriented(state) && recognizePll(state) === c;
+  return showsCaseState(state, c);
 }
 
 export function setupPanel(c: CaseDef): SetupPanel {

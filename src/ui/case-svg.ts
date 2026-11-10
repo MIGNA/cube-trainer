@@ -1,9 +1,11 @@
 // Dessin SVG d'un schéma de dernière couche (vue de dessus).
 // OLL : autocollants de la couleur du dessus en jaune, le reste en gris.
+// Croix (2-look) : seules les arêtes comptent, les coins restent gris.
 // PLL : couleurs des bords + flèches de permutation.
 
 import type { LastLayerView, SideFace } from "../cube/case-diagram";
 import type { Face } from "../cube/facelets";
+import type { CaseKind } from "../cube/cases";
 
 const NS = "http://www.w3.org/2000/svg";
 
@@ -52,13 +54,15 @@ function arrow(a: number, b: number, both: boolean): SVGElement {
   return g;
 }
 
-export function caseSvg(view: LastLayerView, kind: "oll" | "pll", size = 72): SVGSVGElement {
+export function caseSvg(view: LastLayerView, kind: CaseKind, size = 72): SVGSVGElement {
   const svg = el("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, width: size, height: size, class: "case-svg" }) as SVGSVGElement;
-  const color = (f: Face, isSide: boolean) => (kind === "pll" ? COLORS[f] : f === "U" ? COLORS.U : isSide ? OFF : GRAY);
+  const color = (f: Face, isSide: boolean, corner = false) =>
+    kind === "pll" ? COLORS[f] : f === "U" && !(kind === "eo" && corner) ? COLORS.U : isSide ? OFF : GRAY;
 
   view.top.forEach((f, i) => {
+    const corner = i % 2 === 0 && i !== 4;
     svg.append(
-      el("rect", { x: O + (i % 3) * CELL + 0.5, y: O + Math.floor(i / 3) * CELL + 0.5, width: CELL - 1, height: CELL - 1, rx: 1.2, fill: color(f, false) }),
+      el("rect", { x: O + (i % 3) * CELL + 0.5, y: O + Math.floor(i / 3) * CELL + 0.5, width: CELL - 1, height: CELL - 1, rx: 1.2, fill: color(f, false, corner) }),
     );
   });
 
@@ -72,7 +76,7 @@ export function caseSvg(view: LastLayerView, kind: "oll" | "pll", size = 72): SV
           : side === "L"
             ? { x: 0, y: along, width: EDGE, height: CELL - 1 }
             : { x: SIZE - EDGE, y: along, width: EDGE, height: CELL - 1 };
-    svg.append(el("rect", { ...rect, rx: 0.8, fill: color(f, true) }));
+    svg.append(el("rect", { ...rect, rx: 0.8, fill: color(f, true, k !== 1) }));
   };
   for (const side of ["B", "F", "L", "R"] as SideFace[]) view.sides[side].forEach((f, k) => strip(side, k, f));
 

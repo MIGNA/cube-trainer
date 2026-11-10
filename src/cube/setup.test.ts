@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { caseView, lastLayerView } from "./case-diagram";
 import { ALL_CASES, suggestedAlgs } from "./case-algs";
 import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, isSolved, parseAlg } from "./facelets";
-import { OLL_CASES, PLL_CASES, isOriented, recognizeOll, recognizePll, type CaseDef } from "./cases";
+import { OLL_CASES, PLL_CASES, caseKind, showsCaseState, type CaseDef } from "./cases";
 import { viewKey, mergeTurns, setupFromState, shortestSetup, switchFrame, toFaceTurns, toPlayerView } from "./setup";
 
 const fmt = (alg: string) => mergeTurns(parseAlg(alg)).map((t) => t.face + ["", "", "2", "'"][t.amount]).join(" ");
@@ -14,7 +14,7 @@ const turns = (alg: string) =>
 /** L'état (repère joueur) est-il le cas c, F2L faits ? */
 function isCase(state: string, c: CaseDef): boolean {
   if (!allSolved(state, CROSS_GROUPS.D.f2l)) return false;
-  return OLL_CASES.includes(c) ? recognizeOll(state) === c : isOriented(state) && recognizePll(state) === c;
+  return showsCaseState(state, c);
 }
 
 describe("toFaceTurns", () => {
@@ -45,7 +45,7 @@ describe("shortestSetup", () => {
     expect(setup).toMatch(/^([URFDLB]['2]? ?)+$/);
     const state = applyAlg(SOLVED, setup);
     expect(isCase(state, c)).toBe(true);
-    const kind = OLL_CASES.includes(c) ? "oll" : "pll";
+    const kind = caseKind(c);
     expect(viewKey(lastLayerView(state), kind)).toBe(viewKey(caseView(c.alg), kind));
   });
 

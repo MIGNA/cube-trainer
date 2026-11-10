@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OLL_CASES, PLL_CASES, isOriented, ollSignature, pllSignature, recognizeOll, recognizePll } from "./cases";
+import { EO_CASES, OLL_CASES, PLL_CASES, edgesOriented, eoSignature, isOriented, ollSignature, pllSignature, recognizeEo, recognizeOll, recognizePll } from "./cases";
 import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, invertAlg, isSolved } from "./facelets";
 
 const caseState = (alg: string) => applyAlg(SOLVED, invertAlg(alg));
@@ -68,5 +68,25 @@ describe("table PLL", () => {
   it("skip si la dernière couche est résolue à un AUF près", () => {
     expect(recognizePll(SOLVED)).toBe("skip");
     expect(recognizePll(applyAlg(SOLVED, "U"))).toBe("skip");
+  });
+});
+
+describe("croix du 2-look", () => {
+  it.each(EO_CASES)("$id : l'algo préserve les F2L et oriente les arêtes", ({ alg }) => {
+    const solved = applyAlg(caseState(alg), alg);
+    expect(f2lDone(solved)).toBe(true);
+    expect(edgesOriented(solved)).toBe(true);
+    expect(edgesOriented(caseState(alg))).toBe(false);
+  });
+
+  it("les 3 cas sont distincts", () => {
+    expect(new Set(EO_CASES.map((c) => eoSignature(caseState(c.alg)))).size).toBe(3);
+  });
+
+  it("reconnaît le cas quels que soient les coins et l'AUF", () => {
+    // OLL 2 (point), OLL 44 (P → L), OLL 45 (T → ligne), vus sous un autre angle.
+    const ids = ["OLL 2", "OLL 44", "OLL 45"].map((id) => OLL_CASES.find((c) => c.id === id)!);
+    ids.forEach((c, i) => expect(recognizeEo(applyAlg(caseState(c.alg), "U"))).toBe(EO_CASES[i]));
+    expect(recognizeEo(caseState(OLL_CASES.find((c) => c.id === "OLL 27")!.alg))).toBe("skip");
   });
 });

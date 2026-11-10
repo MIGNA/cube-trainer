@@ -1,4 +1,5 @@
-// Tables des cas OLL (57) et PLL (21), et leur reconnaissance.
+// Tables des cas OLL (57) et PLL (21), des 3 cas de croix du 2-look (orientation
+// des arêtes), et leur reconnaissance.
 //
 // Chaque cas est défini par un algorithme standard qui le résout (croix en bas,
 // dernière couche en haut). L'état du cas = cube résolu + algo inversé.
@@ -15,6 +16,17 @@ export interface CaseDef {
   name: string;
   alg: string;
 }
+
+/** Famille d'un cas : croix jaune (1er temps de l'OLL 2-look), OLL ou PLL. */
+export type CaseKind = "eo" | "oll" | "pll";
+
+// 2-look OLL, 1er temps : orienter les arêtes (croix jaune). Seules les arêtes
+// comptent ; les coins de l'état du cas sont quelconques.
+export const EO_CASES: CaseDef[] = [
+  { id: "Croix point", name: "Point", alg: "F R U R' U' F' f R U R' U' f'" },
+  { id: "Croix L", name: "L", alg: "f R U R' U' f'" },
+  { id: "Croix ligne", name: "Ligne", alg: "F R U R' U' F'" },
+];
 
 export const OLL_CASES: CaseDef[] = [
   // Point (aucune arête orientée)
@@ -114,6 +126,10 @@ export const PLL_CASES: CaseDef[] = [
   { id: "Z", name: "Z", alg: "M' U M2 U M2 U M' U2 M2" },
 ];
 
+export function caseKind(c: CaseDef): CaseKind {
+  return EO_CASES.includes(c) ? "eo" : OLL_CASES.includes(c) ? "oll" : "pll";
+}
+
 /**
  * État résolu par `alg` : cube résolu + algo inversé, tenu comme au début de l'algo.
  * Les couleurs peuvent être décalées (rotations, r, M…) mais toutes les vérifications
@@ -162,6 +178,21 @@ export function pllSignature(facelets: string): string {
     .sort()[0];
 }
 
+// Arêtes de la dernière couche : case de U et autocollant latéral (B, L, R, F).
+const EDGE_STICKERS = [1, 46, 3, 37, 5, 10, 7, 19];
+
+/** Signature de la croix : quels autocollants d'arêtes ont la couleur de U (min sur les 4 rotations y). */
+export function eoSignature(facelets: string): string {
+  return rotations(facelets)
+    .map((f) => EDGE_STICKERS.map((i) => (f[i] === f[4] ? "1" : "0")).join(""))
+    .sort()[0];
+}
+
+/** Arêtes de la dernière couche orientées (croix de la couleur de U). */
+export function edgesOriented(facelets: string): boolean {
+  return [1, 3, 5, 7].every((i) => facelets[i] === facelets[4]);
+}
+
 /** Dernière couche orientée (face U d'une seule couleur). */
 export function isOriented(facelets: string): boolean {
   return U_FACE.every((i) => facelets[i] === facelets[4]);
@@ -175,8 +206,24 @@ function buildTable(cases: CaseDef[], signature: (f: string) => string): Map<str
   return table;
 }
 
+let eoTable: Map<string, CaseDef> | null = null;
 let ollTable: Map<string, CaseDef> | null = null;
 let pllTable: Map<string, CaseDef> | null = null;
+
+/** Cas de croix de l'état (dernière couche en haut, F2L faits). "skip" si la croix est faite, null si inconnu. */
+export function recognizeEo(facelets: string): CaseDef | "skip" | null {
+  if (edgesOriented(facelets)) return "skip";
+  eoTable ??= buildTable(EO_CASES, eoSignature);
+  return eoTable.get(eoSignature(facelets)) ?? null;
+}
+
+/** L'état (dernière couche en haut) présente-t-il le cas c ? (F2L non vérifiés) */
+export function showsCaseState(facelets: string, c: CaseDef): boolean {
+  const kind = caseKind(c);
+  if (kind === "eo") return recognizeEo(facelets) === c;
+  if (kind === "oll") return recognizeOll(facelets) === c;
+  return isOriented(facelets) && recognizePll(facelets) === c;
+}
 
 /** Cas OLL de l'état (dernière couche en haut, F2L faits). "skip" si déjà orienté, null si inconnu. */
 export function recognizeOll(facelets: string): CaseDef | "skip" | null {
@@ -213,10 +260,16 @@ export function checkCaseAlg(c: CaseDef, alg: string): AlgCheck {
   }
   const state = caseState(normalized);
   if (!allSolved(state, CROSS_GROUPS.D.f2l)) return { ok: false, error: "Cet algo casse les deux premières couches." };
-  const isOll = OLL_CASES.includes(c);
-  const found = isOll ? recognizeOll(state) : isOriented(state) ? recognizePll(state) : null;
+  const kind = caseKind(c);
+  const found = kind === "eo" ? recognizeEo(state) : kind === "oll" ? recognizeOll(state) : isOriented(state) ? recognizePll(state) : null;
   if (found === c) return { ok: true, alg: normalized };
-  if (found === "skip") return { ok: false, error: "Cet algo ne change pas la dernière couche (à un AUF près)." };
-  if (found) return { ok: false, error: `Cet algo résout ${isOll ? found.id : `la ${found.id}-perm`}, pas ce cas.` };
-  return { ok: false, error: isOll ? "Cet algo ne résout aucune OLL." : "Cet algo ne résout pas une PLL (il dérange l'orientation ?)." };
+  if (found === "skip") {
+    return { ok: false, error: kind === "eo" ? "Cet algo ne change pas l'orientation des arêtes." : "Cet algo ne change pas la dernière couche (à un AUF près)." };
+  }
+  if (found) {
+    const what = kind === "eo" ? `la croix « ${found.name} »` : kind === "oll" ? found.id : `la ${found.id}-perm`;
+    return { ok: false, error: `Cet algo résout ${what}, pas ce cas.` };
+  }
+  const none = { eo: "Cet algo ne fait pas la croix.", oll: "Cet algo ne résout aucune OLL.", pll: "Cet algo ne résout pas une PLL (il dérange l'orientation ?)." };
+  return { ok: false, error: none[kind] };
 }
