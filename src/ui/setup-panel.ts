@@ -42,7 +42,7 @@ export function setupPanel(c: CaseDef): SetupPanel {
     h(
       "p",
       { class: "muted small setup-hold" },
-      // Pastille jaune/vert : rappel de la façon de tenir le cube.
+      // Pastille jaune au-dessus du vert : le cube vu de face (haut jaune, avant vert).
       h("span", { class: "hold-swatch", "aria-hidden": "true" }, h("i", { class: "yellow" }), h("i", { class: "green" })),
       "Depuis le cube résolu, jaune en haut, vert devant :",
     ),
