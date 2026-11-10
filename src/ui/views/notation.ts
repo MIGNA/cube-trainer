@@ -1,5 +1,6 @@
-// Page Notation (#/algos/notation) : ce que veut dire chaque lettre d'un algo,
-// avec un dessin fixe par mouvement (voir src/ui/move-svg.ts).
+// Contenu de la notation : ce que veut dire chaque lettre d'un algo, avec un dessin
+// fixe par mouvement (voir src/ui/move-svg.ts). Affiché par-dessus la page courante
+// (src/ui/notation-sheet.ts).
 
 import { h } from "../dom";
 import { moveSvg } from "../move-svg";
@@ -61,10 +62,8 @@ function card([move, text]: Item): HTMLElement {
   return h("figure", { class: "move-card" }, moveSvg(move), h("figcaption", {}, h("code", {}, move), h("small", { class: "muted" }, text)));
 }
 
-export function mountNotation(container: HTMLElement): void {
-  container.append(
-    h("a", { href: "#/algos", class: "back" }, "‹ Algos"),
-    h("h1", {}, "Notation"),
+export function notationContent(): HTMLElement[] {
+  return [
     h(
       "div",
       { class: "muted small setup-hold" },
@@ -88,5 +87,5 @@ export function mountNotation(container: HTMLElement): void {
         h("dd", {}, "Les parenthèses regroupent des mouvements qui s'enchaînent d'un geste ; elles ne changent rien à l'algo."),
       ),
     ),
-  );
+  ];
 }

@@ -16,17 +16,32 @@ function el(tag: string, attrs: Record<string, string | number>): SVGElement {
 
 const points = (list: [number, number][]) => list.map(([a, b]) => `${a.toFixed(3)},${b.toFixed(3)}`).join(" ");
 
-export function moveSvg(move: string, size = 110): SVGSVGElement {
-  const d = moveDiagram(move);
-  const svg = el("svg", { viewBox: "-2.9 -3.3 5.8 6.6", width: size, height: (size * 6.6) / 5.8, role: "img", class: "move-svg" }) as SVGSVGElement;
-  svg.setAttribute("aria-label", `Mouvement ${move}`);
-
+/** Cube de trois quarts ; `lit` dit quels autocollants restent en couleur (les autres sont estompés). */
+function cube(viewBox: string, size: number, lit: (cubie: Vec3) => boolean): SVGSVGElement {
+  const [, , w, hgt] = viewBox.split(" ").map(Number);
+  const svg = el("svg", { viewBox, width: size, height: (size * hgt) / w }) as SVGSVGElement;
   for (const s of visibleStickers()) {
     // Autocollant légèrement rétréci vers son centre pour laisser voir les joints.
     const c = s.corners.reduce<number[]>((a, p) => a.map((v, i) => v + p[i] / 4), [0, 0, 0]);
     const inset = s.corners.map((p) => project(p.map((v, i) => c[i] + (v - c[i]) * 0.86) as Vec3));
-    svg.append(el("polygon", { points: points(inset), fill: COLORS[s.face], opacity: inLayer(d, s.cubie) ? 1 : 0.22 }));
+    svg.append(el("polygon", { points: points(inset), fill: COLORS[s.face], opacity: lit(s.cubie) ? 1 : 0.22 }));
   }
+  return svg;
+}
+
+/** Petit cube sans flèche (icône du bouton Notation). */
+export function cubeIcon(size = 24): SVGSVGElement {
+  const svg = cube("-2.7 -3.1 5.4 6.2", size, () => true);
+  svg.setAttribute("aria-hidden", "true");
+  return svg;
+}
+
+export function moveSvg(move: string, size = 110): SVGSVGElement {
+  const d = moveDiagram(move);
+  const svg = cube("-2.9 -3.3 5.8 6.6", size, (cubie) => inLayer(d, cubie));
+  svg.setAttribute("class", "move-svg");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Mouvement ${move}`);
 
   // Flèche : un liseré sombre pour le contraste, puis le trait clair et la pointe.
   const p2 = d.path.map(project);

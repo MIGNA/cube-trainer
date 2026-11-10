@@ -4,6 +4,7 @@ import { getDb } from "./storage/db";
 import { requestPersistence } from "./storage/persistence";
 import { loadSolves } from "./storage/solves";
 import { mountCubeButton } from "./ui/cube-button";
+import { mountNotationButton } from "./ui/notation-sheet";
 import { casesView } from "./ui/views/cases";
 import { placeholderView } from "./ui/views/placeholder";
 import { settingsView } from "./ui/views/settings";
@@ -33,6 +34,7 @@ async function main(): Promise<void> {
   void requestPersistence();
 
   mountCubeButton(document.getElementById("app")!);
+  mountNotationButton(document.getElementById("app")!);
   startRouter(routes, document.getElementById("view")!, document.getElementById("tabbar")!);
 }
 

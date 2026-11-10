@@ -345,8 +345,7 @@ a.case-card { text-decoration: none; }
 @keyframes cube-pulse { 50% { opacity: 0.4; } }
 body.timing .cube-button { display: none; }
 /* Laisse la place au bouton à côté du premier élément de chaque page. */
-#view > :first-child { margin-right: 52px; }
-#view > .scramble-box:first-child { margin-left: 52px; } /* mélange du chrono : reste centré */
+#view > :first-child { margin-right: 52px; margin-left: 52px; }
 
 /* Blocs OLL/PLL repliables de l'onglet Algos */
 .case-block > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; }
@@ -360,8 +359,6 @@ body.timing .cube-button { display: none; }
 .case-group-hint { margin: -4px 0 10px; }
 
 /* Page Notation */
-.algos-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.algos-head .back { margin: 0; }
 .move-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
 .move-card { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; min-width: 0; }
 .move-card code { font-size: 1.1rem; font-weight: 700; }
@@ -369,3 +366,48 @@ body.timing .cube-button { display: none; }
 .notation-terms { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; }
 .notation-terms dt { font-weight: 700; font-family: monospace; }
 .notation-terms dd { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+/* Bouton Notation (haut à gauche, symétrique du bouton Bluetooth) */
+.notation-button {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: max(12px, calc((100vw - 640px) / 2 + 12px));
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+body.timing .notation-button { display: none; }
+
+/* Panneau qui monte du bas, par-dessus la page */
+body.sheet-open { overflow: hidden; }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.55); animation: sheet-fade 0.2s ease-out; }
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  max-width: 640px;
+  margin: 0 auto;
+  max-height: calc(100% - env(safe-area-inset-top) - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
+  animation: sheet-up 0.25s ease-out;
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 8px; border-bottom: 1px solid var(--border); }
+.sheet-head h1 { margin: 0; font-size: 1.25rem; }
+.sheet-close { flex: none; width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 1rem; }
+.sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet-backdrop { animation: none; } }
