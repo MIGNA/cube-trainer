@@ -8,7 +8,7 @@
 // Reconnaissance : on calcule une « signature » de la dernière couche, invariante
 // par rotation de la couche U (AUF) et du cube autour de l'axe vertical (y).
 
-import { SOLVED, applyAlg, invertAlg } from "./facelets";
+import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, invertAlg, parseAnyAlg } from "./facelets";
 
 export interface CaseDef {
   id: string;
@@ -114,6 +114,15 @@ export const PLL_CASES: CaseDef[] = [
   { id: "Z", name: "Z", alg: "M' U M2 U M2 U M' U2 M2" },
 ];
 
+/**
+ * État résolu par `alg` : cube résolu + algo inversé, tenu comme au début de l'algo.
+ * Les couleurs peuvent être décalées (rotations, r, M…) mais toutes les vérifications
+ * comparent aux centres, donc ça ne gêne pas.
+ */
+export function caseState(alg: string): string {
+  return applyAlg(SOLVED, invertAlg(alg));
+}
+
 // --- Signatures -------------------------------------------------------------
 // Les fonctions ci-dessous supposent la dernière couche en haut (face U).
 
@@ -162,7 +171,7 @@ const SOLVED_PLL_SIGNATURE = pllSignature(SOLVED);
 
 function buildTable(cases: CaseDef[], signature: (f: string) => string): Map<string, CaseDef> {
   const table = new Map<string, CaseDef>();
-  for (const c of cases) table.set(signature(applyAlg(SOLVED, invertAlg(c.alg))), c);
+  for (const c of cases) table.set(signature(caseState(c.alg)), c);
   return table;
 }
 
@@ -182,4 +191,32 @@ export function recognizePll(facelets: string): CaseDef | "skip" | null {
   if (sig === SOLVED_PLL_SIGNATURE) return "skip";
   pllTable ??= buildTable(PLL_CASES, pllSignature);
   return pllTable.get(sig) ?? null;
+}
+
+// --- Vérification d'un algo saisi ----------------------------------------
+
+export type AlgCheck = { ok: true; alg: string } | { ok: false; error: string };
+
+/**
+ * Vérifie qu'un algo résout le cas `c` (à un AUF près avant et après, rotations
+ * et mouvements larges acceptés) sans casser les F2L. Renvoie l'algo normalisé
+ * (espaces uniformes, Rw → r).
+ */
+export function checkCaseAlg(c: CaseDef, alg: string): AlgCheck {
+  let normalized: string;
+  try {
+    const moves = parseAnyAlg(alg);
+    if (moves.length === 0) return { ok: false, error: "Algo vide." };
+    normalized = alg.replace(/[()]/g, " ").split(/\s+/).filter(Boolean).join(" ").replace(/([URFDLB])w/g, (_, f: string) => f.toLowerCase());
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  const state = caseState(normalized);
+  if (!allSolved(state, CROSS_GROUPS.D.f2l)) return { ok: false, error: "Cet algo casse les deux premières couches." };
+  const isOll = OLL_CASES.includes(c);
+  const found = isOll ? recognizeOll(state) : isOriented(state) ? recognizePll(state) : null;
+  if (found === c) return { ok: true, alg: normalized };
+  if (found === "skip") return { ok: false, error: "Cet algo ne change pas la dernière couche (à un AUF près)." };
+  if (found) return { ok: false, error: `Cet algo résout ${isOll ? found.id : `la ${found.id}-perm`}, pas ce cas.` };
+  return { ok: false, error: isOll ? "Cet algo ne résout aucune OLL." : "Cet algo ne résout pas une PLL (il dérange l'orientation ?)." };
 }

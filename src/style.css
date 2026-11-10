@@ -285,6 +285,7 @@ table.steps { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .case-card.learning { border-color: var(--warn, #f5a524); }
 .case-card.known { border-color: var(--ok, #3ccf7a); }
 .case-card.target { background: #2a323d; }
+a.case-card { text-decoration: none; }
 .case-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 999px; background: #2a323d; color: var(--muted); }
 .case-card.learning .case-badge { background: rgba(245, 165, 36, 0.18); color: var(--warn, #f5a524); }
 .case-card.known .case-badge { background: rgba(60, 207, 122, 0.15); color: var(--ok, #3ccf7a); }
@@ -292,3 +293,22 @@ table.steps { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .case-filters button { flex: none; padding: 6px 12px; font-size: 0.8rem; border-radius: 999px; }
 .case-filters button.selected { outline: none; background: var(--accent); color: #fff; }
 .case-count { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+
+.case-head { display: flex; align-items: center; gap: 16px; }
+.case-head h1 { margin: 0; }
+.case-head p { margin: 2px 0 0; }
+.case-head .case-filters { margin: 10px 0 0; }
+.alg-list { display: flex; flex-direction: column; gap: 8px; }
+.alg-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.alg-row:first-child { border-top: 0; }
+.alg-row code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 0.9rem; }
+.alg-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.alg-actions button { flex: none; padding: 6px 10px; font-size: 0.8rem; }
+.alg-main { color: var(--accent); font-size: 0.8rem; }
+.alg-form { display: flex; gap: 8px; margin-top: 8px; }
+.alg-form input { flex: 1; min-width: 0; padding: 10px; font: inherit; font-family: ui-monospace, monospace; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.alg-form button { flex: none; }
+.setup-alg { display: block; margin: 6px 0 0; font-size: 1rem; overflow-wrap: anywhere; }
+.setup-actions { display: flex; margin-top: 12px; }
+.setup-guide { margin-top: 8px; }
+.setup-guide:empty { display: none; }

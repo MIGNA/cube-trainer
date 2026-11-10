@@ -11,6 +11,8 @@ export interface Settings {
   crossColor: "white" | "yellow" | "green" | "blue" | "red" | "orange";
   /** État de chaque cas, par id ("T", "OLL 27"…). Les cas absents sont « non appris ». */
   caseStatus: Record<string, CaseStatus>;
+  /** Algos choisis par cas (le premier est celui entraîné). Absent = algo standard. */
+  caseAlgs: Record<string, string[]>;
 }
 
 const DEFAULTS: Settings = {
@@ -18,6 +20,7 @@ const DEFAULTS: Settings = {
   inspectionEnabled: true,
   crossColor: "white",
   caseStatus: {},
+  caseAlgs: {},
 };
 
 export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K]> {
