@@ -49,6 +49,8 @@ export interface StepSplit {
   executionMs: number;
   /** null si l'exécution est trop courte pour être mesurée (0 ou 1 mouvement). */
   tps: number | null;
+  /** Paires F2L : les deux faces latérales de l'emplacement rempli (ex. ["F", "R"] = vert-rouge). */
+  slot?: [Face, Face];
 }
 
 /** Cas reconnu : identifiant ("OLL 27", "T"…), "skip", ou null si non reconnu. */
@@ -99,14 +101,33 @@ export function analyzeSolve(scramble: string, moves: readonly SolveMove[], star
   const g = CROSS_GROUPS[face];
 
   // Paires F2L : nombre d'emplacements résolus (croix intacte) atteint pour la 1re fois.
+  // On note aussi quel emplacement vient d'être rempli (le premier non encore attribué).
   const pairK = [0, 0, 0, 0];
+  const pairSlot: (number | undefined)[] = [];
+  const assigned = new Set<number>();
+  const assignNew = (solvedNow: number[]) => {
+    const fresh = solvedNow.find((j) => !assigned.has(j)) ?? [0, 1, 2, 3].find((j) => !assigned.has(j));
+    if (fresh !== undefined) assigned.add(fresh);
+    return fresh;
+  };
   let reached = 0;
   for (let k = crossK; k <= f2lK && reached < 4; k++) {
     if (!allSolved(states[k], g.cross)) continue;
-    const count = g.slots.filter((slot) => allSolved(states[k], slot)).length;
-    while (reached < count) pairK[reached++] = k;
+    const solvedNow = g.slots.flatMap((slot, j) => (allSolved(states[k], slot) ? [j] : []));
+    while (reached < solvedNow.length) {
+      pairSlot[reached] = assignNew(solvedNow);
+      pairK[reached++] = k;
+    }
   }
-  for (let j = reached; j < 4; j++) pairK[j] = f2lK;
+  for (let j = reached; j < 4; j++) {
+    pairSlot[j] = assignNew([]);
+    pairK[j] = f2lK;
+  }
+  const slotFaces = (j: number | undefined): [Face, Face] | undefined => {
+    if (j === undefined) return undefined;
+    const faces = [...new Set(g.slots[j].map((i) => FACES[Math.floor(i / 9)]))].filter((f) => f !== face);
+    return faces.length === 2 ? [faces[0], faces[1]] : undefined;
+  };
 
   const ollK = firstIndex((f) => allSolved(f, g.f2l) && allSolved(f, g.lastLayerFace), f2lK);
 
@@ -129,6 +150,7 @@ export function analyzeSolve(scramble: string, moves: readonly SolveMove[], star
             executionMs: time(end) - moves[start].t,
             tps: tps(count, time(end) - moves[start].t),
           };
+    if (i >= 1 && i <= 4) split.slot = slotFaces(pairSlot[i - 1]);
     start = end;
     return split;
   });

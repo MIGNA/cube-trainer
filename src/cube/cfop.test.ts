@@ -53,6 +53,8 @@ describe("analyzeSolve", () => {
     const a = analyzeSolve(scramble, moves)!;
     expect(["f2l1", "f2l2", "f2l3"].map((id) => byId(a, id).moves)).toEqual([0, 0, 0]);
     expect(byId(a, "f2l4").moves).toBe(3);
+    // R U' R' défait puis refait l'emplacement avant-droit : vert-rouge
+    expect([...byId(a, "f2l4").slot!].sort()).toEqual(["F", "R"]);
     expect(a.oll).toBe("skip");
     expect(a.pll).toBe("skip");
   });
@@ -93,5 +95,8 @@ describe("analyzeSolve", () => {
     const ends = a.steps.map((s) => s.endMs);
     expect([...ends].sort((x, y) => x - y)).toEqual(ends);
     expect(a.steps.reduce((s, x) => s + x.moves, 0)).toBe(moves.length);
+    // les 4 paires occupent 4 emplacements différents
+    const slots = ["f2l1", "f2l2", "f2l3", "f2l4"].map((id) => [...byId(a, id).slot!].sort().join(""));
+    expect(new Set(slots).size).toBe(4);
   });
 });

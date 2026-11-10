@@ -3,7 +3,8 @@
 
 import type { View } from "../../app/router";
 import { OLL_CASES, PLL_CASES } from "../../cube/cases";
-import { FACE_COLORS, STEP_LABELS, analyzeSolve, type CaseResult, type SolveAnalysis, type StepId } from "../../cube/cfop";
+import { FACE_COLORS, STEP_LABELS, analyzeSolve, type CaseResult, type SolveAnalysis, type StepId, type StepSplit } from "../../cube/cfop";
+import type { Face } from "../../cube/facelets";
 import { PHASE_LABELS, PHASE_OF, fluency, phases, reconstructSteps, setupForCross, type StepReconstruction } from "../../cube/reconstruction";
 import type { Penalty, Solve } from "../../storage/db";
 import { deleteSolve, setPenalty, solves } from "../../storage/solves";
@@ -87,45 +88,66 @@ function summaryCard(analysis: SolveAnalysis, solve: Solve): HTMLElement {
 
 // --- Tableau des étapes ---------------------------------------------------
 
+/** Couleurs réelles des autocollants (pastilles des paires F2L). */
+const STICKER_HEX: Record<Face, string> = { U: "#ffffff", D: "#ffd500", F: "#00a651", B: "#1e64d6", R: "#d7263d", L: "#ff7a1a" };
+const SLOT_ORDER: Face[] = ["F", "B", "R", "L", "U", "D"];
+
+function slotTag(slot: [Face, Face]): HTMLElement {
+  const faces = [...slot].sort((a, b) => SLOT_ORDER.indexOf(a) - SLOT_ORDER.indexOf(b));
+  return h(
+    "small",
+    { class: "case slot" },
+    ...faces.map((f) => h("span", { class: "dot", style: `background:${STICKER_HEX[f]}` })),
+    faces.map((f) => FACE_COLORS[f]).join("-"),
+  );
+}
+
 function stepsTable(analysis: SolveAnalysis): HTMLElement {
   const caseOf = (id: StepId) => (id === "oll" ? caseLabel(analysis.oll, "OLL") : id === "pll" ? caseLabel(analysis.pll, "PLL") : null);
-  const rows = analysis.steps.map((s) =>
+  // Mini-barre : longueur proportionnelle à la durée de l'étape (la plus longue = pleine largeur),
+  // partie foncée = reconnaissance, partie claire = exécution.
+  const longest = Math.max(1, ...analysis.steps.map((s) => s.durationMs));
+  const miniBar = (s: StepSplit, alt: boolean) =>
     h(
+      "div",
+      { class: "mini-fill", style: `width:${(s.durationMs / longest) * 100}%` },
+      s.recognitionMs > 0 ? h("span", { class: `seg reco${alt ? " alt" : ""}`, style: `flex-grow:${s.recognitionMs}` }) : null,
+      s.executionMs > 0 ? h("span", { class: `seg${alt ? " alt" : ""}`, style: `flex-grow:${s.executionMs}` }) : null,
+    );
+
+  const rows = analysis.steps.map((s, i) => {
+    const skipped = s.moves === 0;
+    const sub = s.slot ? slotTag(s.slot) : caseOf(s.id) ? h("small", { class: "case" }, caseOf(s.id)) : null;
+    return h(
       "tr",
-      { class: `step-${PHASE_OF[s.id]}` },
-      h("th", {}, STEP_LABELS[s.id], caseOf(s.id) ? h("small", { class: "case" }, caseOf(s.id)) : null),
-      h("td", {}, sec(s.durationMs)),
-      h("td", { class: "muted" }, s.id === "cross" ? "–" : sec(s.recognitionMs)),
-      h("td", { class: "muted" }, sec(s.executionMs)),
-      h("td", {}, String(s.moves)),
-      h("td", { class: "muted" }, fmtTps(s.tps)),
-    ),
-  );
+      { class: `step-${PHASE_OF[s.id]}${skipped ? " skipped" : ""}` },
+      h("th", {}, STEP_LABELS[s.id], sub),
+      h("td", { class: "bar-cell" }, skipped ? null : miniBar(s, s.id.startsWith("f2l") && i % 2 === 0)),
+      h("td", { class: "num" }, skipped ? "–" : sec(s.durationMs)),
+      h("td", { class: "num" }, String(s.moves)),
+      h("td", { class: "num muted" }, fmtTps(s.tps)),
+    );
+  });
   return h(
     "section",
     { class: "card" },
     h("h2", {}, "Étapes"),
     h(
-      "div",
-      { class: "table-wrap" },
+      "table",
+      { class: "steps" },
+      h("thead", {}, h("tr", {}, h("th", {}, ""), h("th", {}, ""), h("th", { class: "num" }, "Temps"), h("th", { class: "num" }, "Mvts"), h("th", { class: "num" }, "TPS"))),
+      h("tbody", {}, ...rows),
       h(
-        "table",
-        { class: "steps" },
-        h("thead", {}, h("tr", {}, h("th", {}, ""), h("th", {}, "Temps"), h("th", {}, "Reco"), h("th", {}, "Exéc"), h("th", {}, "Mvts"), h("th", {}, "TPS"))),
-        h("tbody", {}, ...rows),
+        "tfoot",
+        {},
         h(
-          "tfoot",
+          "tr",
           {},
-          h(
-            "tr",
-            {},
-            h("th", {}, "Total"),
-            h("td", {}, sec(analysis.totalMs)),
-            h("td", { class: "muted" }, sec(analysis.steps.reduce((t, s) => t + s.recognitionMs, 0))),
-            h("td", { class: "muted" }, sec(analysis.steps.reduce((t, s) => t + s.executionMs, 0))),
-            h("td", {}, String(analysis.totalMoves)),
-            h("td", { class: "muted" }, fmtTps(analysis.tps)),
-          ),
+          h("th", {}, "Total"),
+          h("td", {}),
+          h("td", { class: "num" }, sec(analysis.totalMs)),
+          h("td", { class: "num" }, String(analysis.totalMoves)),
+          h("td", { class: "num muted" }, fmtTps(analysis.tps)),
         ),
       ),
     ),
