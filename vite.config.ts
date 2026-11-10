@@ -14,6 +14,21 @@ export default defineConfig(({ command }) => ({
   optimizeDeps: {
     exclude: ["cubing"],
   },
+  // En build, le worker de recherche de cubing.js (mélanges WCA, solveur du set-up)
+  // importe l'assistant de préchargement de Vite. Par défaut celui-ci est placé dans
+  // le fichier principal de l'appli (qui touche au DOM) et il utilise `document` pour
+  // précharger : le worker plante (« Module worker instantiation failed »).
+  // → assistant dans son propre fichier, et aucun préchargement depuis le worker.
+  build: {
+    modulePreload: {
+      resolveDependencies: (_file, deps, { hostId }) => (hostId.includes("search-worker-entry") ? [] : deps),
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => (id.includes("preload-helper") ? "preload-helper" : undefined),
+      },
+    },
+  },
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
