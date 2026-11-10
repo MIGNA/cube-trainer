@@ -82,7 +82,7 @@ export interface CaseGroup {
 
 const byIds = (list: CaseDef[], ids: string[]) => ids.map((id) => list.find((c) => c.id === id)!);
 
-/** Cas de chaque ensemble, par bloc (OLL au sens large : croix + OLL). Débutant : à venir. */
+/** Cas de chaque ensemble, par bloc (OLL au sens large : croix + OLL). Débutant : pas de cas, une synthèse. */
 export const SET_CASES: Record<AlgSet, { oll: CaseGroup[]; pll: CaseGroup[] }> = {
   cfop: { oll: [{ cases: OLL_CASES }], pll: [{ cases: PLL_CASES }] },
   "2look": {
@@ -99,7 +99,7 @@ export const SET_CASES: Record<AlgSet, { oll: CaseGroup[]; pll: CaseGroup[] }> =
       { label: "2e temps : les arêtes", cases: byIds(PLL_CASES, ["Ua", "Ub", "H", "Z"]) },
     ],
   },
-  beginner: { oll: [], pll: [] },
+  beginner: { oll: [], pll: [] }, // synthèse à part : cube/beginner.ts
 };
 
 export function findCase(id: string): CaseDef | undefined {

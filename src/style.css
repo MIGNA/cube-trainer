@@ -423,3 +423,18 @@ body.sheet-open { overflow: hidden; }
 @keyframes sheet-up { from { transform: translateY(100%); } }
 @keyframes sheet-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .sheet, .sheet-backdrop { animation: none; } }
+
+/* Synthèse de la méthode débutant */
+.beginner-step p { margin: 6px 0; }
+.beginner-text { display: flex; gap: 12px; align-items: flex-start; }
+.beginner-text .case-svg { flex: none; margin-top: 4px; }
+.beginner-text ol { margin: 4px 0; padding-left: 18px; font-size: 0.9rem; }
+.beginner-text li { margin-bottom: 4px; }
+.beginner-alg { padding: 10px 0; border-top: 1px solid var(--border); }
+.beginner-alg-head { display: flex; gap: 12px; align-items: flex-start; }
+.beginner-alg-head .case-svg { flex: none; }
+.beginner-alg-head p { margin: 2px 0 6px; }
+.beginner-formula { font-size: 1rem; overflow-wrap: anywhere; }
+.beginner-story { margin: 8px 0 0; padding-left: 22px; font-size: 0.85rem; color: var(--muted); }
+.beginner-story code { display: inline-block; min-width: 2.2em; color: var(--text); }
+.beginner-tip { margin-top: 8px; }

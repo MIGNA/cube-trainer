@@ -1,5 +1,5 @@
 // Onglet Algos :
-// - #/algos : catalogue par ensemble (CFOP : 21 PLL et 57 OLL ; 2-look ; débutant à venir),
+// - #/algos : catalogue par ensemble (CFOP : 21 PLL et 57 OLL ; 2-look ; débutant = synthèse de la méthode),
 //   filtrable par état (filtres combinables), en blocs OLL/PLL repliables ;
 // - #/algos/notation : catalogue avec la notation ouverte par-dessus (lien direct) ;
 // - #/algos/<id> : fiche d'un cas (état d'apprentissage, set-up, mes algos, suggestions, ajout d'un algo).
@@ -15,6 +15,7 @@ import { setupPanel } from "../setup-panel";
 import { openNotation } from "../notation-sheet";
 import { h } from "../dom";
 import { algView } from "../alg-view";
+import { beginnerSummary } from "../beginner-summary";
 
 /** Lien vers la fiche d'un cas ("T", "OLL 27"…). */
 export const algoHref = (id: string) => `#/algos/${encodeURIComponent(id)}`;
@@ -154,17 +155,22 @@ function mountCatalogue(container: HTMLElement): void {
     });
     return { b, el, title, count, body, empty, cases: [] as CaseDef[] };
   });
-  const soon = h(
-    "section",
-    { class: "card" },
-    h("h2", {}, "Méthode débutant"),
-    h("p", { class: "muted" }, "Bientôt : la méthode couche par couche, avec un surnom pour chaque algo."),
+  // Débutant : simple synthèse de la méthode, sans état ni filtres.
+  const beginner = beginnerSummary();
+  const intro = h(
+    "p",
+    { class: "muted small" },
+    "Dernière couche en haut (jaune), face verte devant. Les flèches montrent où va chaque pièce. Touche un cas pour choisir ton algo et son état.",
   );
+  const statusRow = h("div", { class: "case-filters" }, allBtn, ...filterBtns.map((b) => b.btn));
 
   // Contenu des blocs selon l'ensemble choisi.
   function build(): void {
     const set = SET_CASES[prefs.set];
-    soon.hidden = prefs.set !== "beginner";
+    const isBeginner = prefs.set === "beginner";
+    beginner.hidden = !isBeginner;
+    intro.hidden = isBeginner;
+    statusRow.hidden = isBeginner;
     for (const block of blocks) {
       const groups = set[block.b];
       block.cases = groups.flatMap((g) => g.cases);
@@ -216,14 +222,10 @@ function mountCatalogue(container: HTMLElement): void {
 
   container.append(
     h("h1", {}, "Algos"),
-    h(
-      "p",
-      { class: "muted small" },
-      "Dernière couche en haut (jaune), face verte devant. Les flèches montrent où va chaque pièce. Touche un cas pour choisir ton algo et son état.",
-    ),
+    intro,
     h("div", { class: "case-filters" }, ...setBtns),
-    h("div", { class: "case-filters" }, allBtn, ...filterBtns.map((b) => b.btn)),
-    soon,
+    statusRow,
+    beginner,
     ...blocks.map((b) => b.el),
   );
   build();
