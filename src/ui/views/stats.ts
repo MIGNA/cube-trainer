@@ -37,7 +37,7 @@ export const statsView: View = {
     const more = h("button", { class: "secondary", onclick: () => { shown += PAGE; render(solves.get()); } }, "Afficher plus");
     const empty = h("p", { class: "muted" }, "Aucun solve pour l'instant. Lance le chrono !");
 
-    container.append(h("h1", {}, "Statistiques"), summary, h("section", { class: "card" }, h("h2", {}, "Historique"), empty, list, more));
+    container.append(h("h1", {}, "Statistiques"), h("a", { href: "#/cas", class: "back" }, "Catalogue des cas OLL / PLL ›"), summary, h("section", { class: "card" }, h("h2", {}, "Historique"), empty, list, more));
 
     function render(all: readonly Solve[]): void {
       summary.replaceChildren(

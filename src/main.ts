@@ -3,6 +3,7 @@ import { startRouter, type Route } from "./app/router";
 import { getDb } from "./storage/db";
 import { requestPersistence } from "./storage/persistence";
 import { loadSolves } from "./storage/solves";
+import { casesView } from "./ui/views/cases";
 import { placeholderView } from "./ui/views/placeholder";
 import { settingsView } from "./ui/views/settings";
 import { solveView } from "./ui/views/solve";
@@ -20,6 +21,7 @@ const routes: Route[] = [
   { path: "stats", label: "Stats", icon: "📊", view: statsView },
   { path: "reglages", label: "Réglages", icon: "⚙️", view: settingsView },
   { path: "solve", tab: "stats", view: solveView },
+  { path: "cas", tab: "stats", view: casesView },
 ];
 
 async function main(): Promise<void> {
