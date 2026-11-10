@@ -18,10 +18,10 @@ const routes: Route[] = [
     icon: "🎯",
     view: placeholderView("Entraînement", "Le programme quotidien (OLL/PLL, drills de croix, streak) arrive aux étapes 5 à 7."),
   },
+  { path: "algos", label: "Algos", icon: "📚", view: casesView },
   { path: "stats", label: "Stats", icon: "📊", view: statsView },
   { path: "reglages", label: "Réglages", icon: "⚙️", view: settingsView },
   { path: "solve", tab: "stats", view: solveView },
-  { path: "cas", tab: "stats", view: casesView },
 ];
 
 async function main(): Promise<void> {

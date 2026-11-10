@@ -13,6 +13,7 @@ import { deleteSolve, setPenalty, solves } from "../../storage/solves";
 import { formatTime } from "../../timer/format";
 import { effectiveTime } from "../../timer/stats";
 import { h } from "../dom";
+import { algoHref } from "./cases";
 import { fmtTps, sec, slotDots, slotName, solveSummary, stepBlock, stepPaint } from "../solve-summary";
 
 const stepTps = (moves: number, ms: number) => (ms > 0 ? moves / (ms / 1000) : null);
@@ -39,6 +40,12 @@ function slotTag(slot: [Face, Face]): HTMLElement {
   return h("small", { class: "case slot" }, ...slotDots(slot), slotName(slot));
 }
 
+/** Nom du cas OLL/PLL ; lien vers sa fiche dans l'onglet Algos s'il est reconnu. */
+function caseTag(result: CaseResult, label: string): HTMLElement {
+  if (result === null || result === "skip") return h("small", { class: "case" }, label);
+  return h("a", { class: "case case-link", href: algoHref(result) }, `${label} ›`);
+}
+
 function stepsTable(analysis: SolveAnalysis): HTMLElement {
   const caseOf = (id: StepId) => (id === "oll" ? caseLabel(analysis.oll, "OLL") : id === "pll" ? caseLabel(analysis.pll, "PLL") : null);
   // Mini-barre : longueur proportionnelle à la durée de l'étape (la plus longue = pleine largeur),
@@ -49,7 +56,7 @@ function stepsTable(analysis: SolveAnalysis): HTMLElement {
 
   const rows = analysis.steps.map((s) => {
     const skipped = s.moves === 0;
-    const sub = s.slot ? slotTag(s.slot) : caseOf(s.id) ? h("small", { class: "case" }, caseOf(s.id)) : null;
+    const sub = s.slot ? slotTag(s.slot) : caseOf(s.id) ? caseTag(s.id === "oll" ? analysis.oll : analysis.pll, caseOf(s.id)!) : null;
     return h(
       "tr",
       { class: skipped ? "skipped" : "" },
