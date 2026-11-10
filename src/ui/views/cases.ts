@@ -14,6 +14,7 @@ import { caseSvg } from "../case-svg";
 import { setupPanel } from "../setup-panel";
 import { openNotation } from "../notation-sheet";
 import { h } from "../dom";
+import { algView } from "../alg-view";
 
 /** Lien vers la fiche d'un cas ("T", "OLL 27"…). */
 export const algoHref = (id: string) => `#/algos/${encodeURIComponent(id)}`;
@@ -289,7 +290,7 @@ function mountCase(container: HTMLElement, c: CaseDef): () => void {
   }
 
   function row(alg: string, ...actions: (HTMLElement | null)[]): HTMLElement {
-    return h("div", { class: "alg-row" }, h("code", {}, alg), h("div", { class: "alg-actions" }, ...actions));
+    return h("div", { class: "alg-row" }, algView(alg, { interactive: true }), h("div", { class: "alg-actions" }, ...actions));
   }
 
   function refresh(): void {
