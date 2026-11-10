@@ -312,3 +312,30 @@ a.case-card { text-decoration: none; }
 .setup-actions { display: flex; margin-top: 12px; }
 .setup-guide { margin-top: 8px; }
 .setup-guide:empty { display: none; }
+
+/* Bouton Bluetooth (haut à droite) */
+.cube-button {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: max(12px, calc((100vw - 640px) / 2 + 12px));
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.cube-button[data-state="connected"] { background: var(--ok); border-color: var(--ok); color: #0b1a10; }
+.cube-button[data-state="connecting"] { animation: cube-pulse 1s ease-in-out infinite; }
+.cube-button[data-state="error"] { border-color: var(--err); color: var(--err); }
+@keyframes cube-pulse { 50% { opacity: 0.4; } }
+body.timing .cube-button { display: none; }
+/* Laisse la place au bouton à côté du premier élément de chaque page. */
+#view > :first-child { margin-right: 52px; }
+#view > .scramble-box:first-child { margin-left: 52px; } /* mélange du chrono : reste centré */
+.cube-button[hidden] { display: none; }

@@ -3,6 +3,7 @@ import { startRouter, type Route } from "./app/router";
 import { getDb } from "./storage/db";
 import { requestPersistence } from "./storage/persistence";
 import { loadSolves } from "./storage/solves";
+import { mountCubeButton } from "./ui/cube-button";
 import { casesView } from "./ui/views/cases";
 import { placeholderView } from "./ui/views/placeholder";
 import { settingsView } from "./ui/views/settings";
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
   // (surtout une fois l'appli installée) ; sinon on réessaie depuis les réglages.
   void requestPersistence();
 
+  mountCubeButton(document.getElementById("app")!);
   startRouter(routes, document.getElementById("view")!, document.getElementById("tabbar")!);
 }
 
