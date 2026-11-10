@@ -13,7 +13,9 @@ import { formatTime } from "../../timer/format";
 import { generateScramble } from "../../timer/scramble";
 import { averageOf, effectiveTime } from "../../timer/stats";
 import { INSPECTION_DNF_MS, INSPECTION_MS, TimerMachine } from "../../timer/timer-machine";
+import { analyzeSolve } from "../../cube/cfop";
 import { h } from "../dom";
+import { solveSummary } from "../solve-summary";
 import { keepScreenOn } from "../wake-lock";
 
 function vibrate(ms: number): void {
@@ -66,13 +68,10 @@ export const timerView: View = {
       DNF: h("button", { class: "secondary", onclick: () => void applyPenalty("DNF") }, "DNF"),
     } satisfies Record<Penalty, HTMLButtonElement>;
     const deleteBtn = h("button", { class: "secondary danger", onclick: () => void removeLast() }, "Supprimer");
-    const analysisLink = h("a", { class: "analysis-link" }, "Voir l'analyse ›");
-    const lastActions = h(
-      "div",
-      { class: "last-solve" },
-      h("div", { class: "row last-actions" }, penaltyBtns.none, penaltyBtns["+2"], penaltyBtns.DNF, deleteBtn),
-      analysisLink,
-    );
+    const lastActions = h("div", { class: "row last-actions" }, penaltyBtns.none, penaltyBtns["+2"], penaltyBtns.DNF, deleteBtn);
+    // Synthèse du dernier solve fait avec le cube ; un toucher ouvre l'analyse complète.
+    const summaryLink = h("a", { class: "timer-summary" });
+    let summaryFor: number | undefined;
 
     const zone = h("div", { class: "timer-zone" }, display, hint, cancelBtn);
 
@@ -87,6 +86,7 @@ export const timerView: View = {
         h("div", {}, h("small", { class: "muted" }, "solves"), countEl),
       ),
       lastActions,
+      summaryLink,
     );
 
     // --- Logique ----------------------------------------------------------
@@ -276,9 +276,22 @@ export const timerView: View = {
       lastActions.hidden = timing || !lastSolve;
       if (lastSolve) {
         for (const [p, btn] of Object.entries(penaltyBtns)) btn.classList.toggle("selected", p === lastSolve.penalty);
-        analysisLink.hidden = !lastSolve.moves?.length;
-        analysisLink.href = `#/solve/${lastSolve.id}`;
       }
+      updateSummary(timing);
+    }
+
+    function updateSummary(timing: boolean): void {
+      const solve = lastSolve;
+      if (solve?.id !== summaryFor) {
+        summaryFor = solve?.id;
+        const analysis = solve?.moves?.length ? analyzeSolve(solve.scramble, solve.moves) : null;
+        summaryLink.replaceChildren();
+        if (solve && analysis) {
+          summaryLink.href = `#/solve/${solve.id}`;
+          summaryLink.append(solveSummary(analysis, solve.moves!), h("span", { class: "more" }, "Voir l'analyse ›"));
+        }
+      }
+      summaryLink.hidden = timing || !summaryLink.hasChildNodes();
     }
 
     // --- Abonnements ------------------------------------------------------

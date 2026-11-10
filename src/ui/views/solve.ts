@@ -3,14 +3,17 @@
 
 import type { View } from "../../app/router";
 import { OLL_CASES, PLL_CASES } from "../../cube/cases";
-import { FACE_COLORS, STEP_LABELS, analyzeSolve, type CaseResult, type SolveAnalysis, type StepId, type StepSplit } from "../../cube/cfop";
+import { STEP_LABELS, analyzeSolve, type CaseResult, type SolveAnalysis, type StepId, type StepSplit } from "../../cube/cfop";
 import type { Face } from "../../cube/facelets";
-import { PHASE_LABELS, PHASE_OF, fluency, phases, reconstructSteps, setupForCross, type StepReconstruction } from "../../cube/reconstruction";
+import { reconstructSteps, setupForCross, type StepReconstruction } from "../../cube/reconstruction";
 import type { Penalty, Solve } from "../../storage/db";
 import { deleteSolve, setPenalty, solves } from "../../storage/solves";
 import { formatTime } from "../../timer/format";
 import { effectiveTime } from "../../timer/stats";
 import { h } from "../dom";
+import { fmtTps, sec, slotDots, slotName, solveSummary, stepBlock, stepPaint } from "../solve-summary";
+
+const stepTps = (moves: number, ms: number) => (ms > 0 ? moves / (ms / 1000) : null);
 
 const CASE_NAMES = new Map([...OLL_CASES, ...PLL_CASES].map((c) => [c.id, c.name]));
 
@@ -22,84 +25,16 @@ function caseLabel(result: CaseResult, kind: "OLL" | "PLL"): string {
   return name ? `${result.replace("OLL ", "")} · ${name}` : result;
 }
 
-const sec = (ms: number) => (ms / 1000).toFixed(2);
-const fmtTps = (tps: number | null) => (tps == null ? "–" : tps.toFixed(2));
 
 function formatSolveTime(solve: Solve): string {
   const t = formatTime(effectiveTime(solve));
   return solve.penalty === "+2" ? `${t}+` : t;
 }
 
-// --- Synthèse -------------------------------------------------------------
-
-function summaryCard(analysis: SolveAnalysis, solve: Solve): HTMLElement {
-  const flu = fluency(solve.moves!);
-  const headline = h(
-    "p",
-    { class: "summary-line" },
-    `${fmtTps(analysis.tps)} TPS`,
-    h("span", { class: "sep" }, "|"),
-    `${analysis.totalMoves} mouvements`,
-    h("span", { class: "sep" }, "|"),
-    `${flu == null ? "–" : Math.round(flu * 100)} % fluidité`,
-  );
-
-  // Barre : un bloc par phase (croix, F2L, OLL, PLL), et dans chaque bloc un segment
-  // par étape, découpé en reconnaissance (foncé) puis exécution (clair).
-  const total = analysis.totalMs || 1;
-  const bar = h(
-    "div",
-    { class: "phase-bar" },
-    ...phases(analysis).map((phase) => {
-      const steps = analysis.steps.filter((s) => PHASE_OF[s.id] === phase.id);
-      const segments = h(
-        "div",
-        { class: "phase-track" },
-        ...steps.flatMap((s, i) => {
-          const tone = phase.id === "f2l" && i % 2 === 1 ? " alt" : "";
-          return [
-            s.recognitionMs > 0 ? h("span", { class: `seg reco${tone}`, style: `flex-grow:${s.recognitionMs}` }) : null,
-            s.executionMs > 0 ? h("span", { class: `seg${tone}`, style: `flex-grow:${s.executionMs}` }) : null,
-          ];
-        }),
-      );
-      return h(
-        "div",
-        { class: `phase phase-${phase.id}`, style: `flex-grow:${Math.max(phase.durationMs, total * 0.06)}` },
-        h("strong", {}, phase.durationMs > 0 ? sec(phase.durationMs) : "skip"),
-        segments,
-        h("small", {}, PHASE_LABELS[phase.id]),
-      );
-    }),
-  );
-
-  const legend = h(
-    "p",
-    { class: "muted small legend" },
-    h("span", { class: "swatch reco" }),
-    " reconnaissance ",
-    h("span", { class: "swatch" }),
-    " exécution · croix ",
-    FACE_COLORS[analysis.crossFace],
-  );
-
-  return h("section", { class: "card" }, headline, bar, legend);
-}
-
 // --- Tableau des étapes ---------------------------------------------------
 
-/** Couleurs réelles des autocollants (pastilles des paires F2L). */
-const STICKER_HEX: Record<Face, string> = { U: "#ffffff", D: "#ffd500", F: "#00a651", B: "#1e64d6", R: "#d7263d", L: "#ff7a1a" };
-const SLOT_ORDER: Face[] = ["F", "B", "R", "L", "U", "D"];
-
 function slotTag(slot: [Face, Face]): HTMLElement {
-  const faces = [...slot].sort((a, b) => SLOT_ORDER.indexOf(a) - SLOT_ORDER.indexOf(b));
-  return h(
-    "small",
-    { class: "case slot" },
-    ...faces.map((f) => h("span", { class: "dot", style: `background:${STICKER_HEX[f]}` })),
-    faces.map((f) => FACE_COLORS[f]).join("-"),
-  );
+  return h("small", { class: "case slot" }, ...slotDots(slot), slotName(slot));
 }
 
 function stepsTable(analysis: SolveAnalysis): HTMLElement {
@@ -107,25 +42,27 @@ function stepsTable(analysis: SolveAnalysis): HTMLElement {
   // Mini-barre : longueur proportionnelle à la durée de l'étape (la plus longue = pleine largeur),
   // partie foncée = reconnaissance, partie claire = exécution.
   const longest = Math.max(1, ...analysis.steps.map((s) => s.durationMs));
-  const miniBar = (s: StepSplit, alt: boolean) =>
-    h(
-      "div",
-      { class: "mini-fill", style: `width:${(s.durationMs / longest) * 100}%` },
-      s.recognitionMs > 0 ? h("span", { class: `seg reco${alt ? " alt" : ""}`, style: `flex-grow:${s.recognitionMs}` }) : null,
-      s.executionMs > 0 ? h("span", { class: `seg${alt ? " alt" : ""}`, style: `flex-grow:${s.executionMs}` }) : null,
-    );
+  const miniBar = (s: StepSplit) =>
+    h("div", { class: "mini-fill", style: `width:${(s.durationMs / longest) * 100}%` }, stepBlock(analysis, s));
 
-  const rows = analysis.steps.map((s, i) => {
+  const rows = analysis.steps.map((s) => {
     const skipped = s.moves === 0;
     const sub = s.slot ? slotTag(s.slot) : caseOf(s.id) ? h("small", { class: "case" }, caseOf(s.id)) : null;
     return h(
       "tr",
-      { class: `step-${PHASE_OF[s.id]}${skipped ? " skipped" : ""}` },
-      h("th", {}, STEP_LABELS[s.id], sub),
-      h("td", { class: "bar-cell" }, skipped ? null : miniBar(s, s.id.startsWith("f2l") && i % 2 === 0)),
+      { class: skipped ? "skipped" : "" },
+      // Repère coloré à gauche : la couleur de l'étape.
+      h("th", { class: "step-name", style: `--paint:${stepPaint(analysis, s, "tb")}` }, STEP_LABELS[s.id], sub),
+      h("td", { class: "bar-cell" }, skipped ? null : miniBar(s)),
       h("td", { class: "num" }, skipped ? "–" : sec(s.durationMs)),
       h("td", { class: "num" }, String(s.moves)),
-      h("td", { class: "num muted" }, fmtTps(s.tps)),
+      // TPS sur le temps total de l'étape, et en petit sur l'exécution seule (sans la reconnaissance).
+      h(
+        "td",
+        { class: "num" },
+        skipped ? "–" : fmtTps(stepTps(s.moves, s.durationMs)),
+        !skipped && s.recognitionMs > 0 ? h("small", { class: "tps-exec" }, `exéc ${fmtTps(s.tps)}`) : null,
+      ),
     );
   });
   return h(
@@ -147,7 +84,7 @@ function stepsTable(analysis: SolveAnalysis): HTMLElement {
           h("td", {}),
           h("td", { class: "num" }, sec(analysis.totalMs)),
           h("td", { class: "num" }, String(analysis.totalMoves)),
-          h("td", { class: "num muted" }, fmtTps(analysis.tps)),
+          h("td", { class: "num" }, fmtTps(analysis.tps)),
         ),
       ),
     ),
@@ -179,7 +116,7 @@ function replayCard(analysis: SolveAnalysis, solve: Solve): { el: HTMLElement; d
       h(
         "p",
         { class: s.moves.length ? "" : "muted" },
-        h("span", { class: `recon-label step-${PHASE_OF[s.id]}` }, s.label),
+        h("span", { class: "recon-label", style: `--paint:${stepPaint(analysis, analysis.steps.find((x) => x.id === s.id)!, "tb")}` }, s.label),
         s.moves.length ? s.moves.join(" ") : "—",
       ),
     ),
@@ -251,7 +188,7 @@ export const solveView: View = {
       } else {
         const replay = replayCard(analysis, solve);
         dispose = replay.dispose;
-        container.append(summaryCard(analysis, solve), stepsTable(analysis), replay.el);
+        container.append(h("section", { class: "card" }, solveSummary(analysis, solve.moves)), stepsTable(analysis), replay.el);
       }
     }
 
