@@ -39,7 +39,13 @@ export function setupPanel(c: CaseDef): SetupPanel {
     "section",
     { class: "card" },
     h("h2", {}, "Set-up"),
-    h("p", { class: "muted small" }, "Depuis le cube résolu, jaune en haut, vert devant :"),
+    h(
+      "p",
+      { class: "muted small setup-hold" },
+      // Pastille jaune/vert : rappel de la façon de tenir le cube.
+      h("span", { class: "hold-swatch", "aria-hidden": "true" }, h("i", { class: "yellow" }), h("i", { class: "green" })),
+      "Depuis le cube résolu, jaune en haut, vert devant :",
+    ),
     setupEl,
     actions,
     guide,
