@@ -43,10 +43,9 @@ export default defineConfig(({ command }) => ({
   },
   plugins: [
     VitePWA({
-      // « prompt » : une nouvelle version attend que l'utilisateur la demande
-      // (bouton dans les réglages, voir src/app/pwa.ts) ; enregistrement fait dans main.ts.
-      registerType: "prompt",
-      injectRegister: false,
+      // Nouvelle version installée en arrière-plan, active au prochain
+      // rafraîchissement ou à la réouverture de l'appli.
+      registerType: "autoUpdate",
       workbox: {
         // Tout mettre en cache pour un fonctionnement 100 % hors ligne (icônes comprises).
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],

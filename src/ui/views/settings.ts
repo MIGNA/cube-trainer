@@ -1,4 +1,4 @@
-import { applyUpdate, updateAvailable, versionLabel } from "../../app/pwa";
+import { versionLabel } from "../../app/version";
 import type { View } from "../../app/router";
 import {
   connectGanCube,
@@ -185,19 +185,13 @@ export const settingsView: View = {
   title: "Réglages",
   mount(container) {
     const cube = cubeSection();
-    const updateBtn = h("button", { class: "update-btn", onclick: applyUpdate }, "Nouvelle version disponible — toucher pour recharger");
-    const unsubscribeUpdate = updateAvailable.subscribe((available) => (updateBtn.hidden = !available));
     container.append(
       h("h1", {}, "Réglages"),
       timerSection(),
       cube.el,
       dataSection(),
       h("p", { class: "muted version" }, `Cube Trainer ${versionLabel()}`),
-      updateBtn,
     );
-    return () => {
-      cube.cleanup();
-      unsubscribeUpdate();
-    };
+    return cube.cleanup;
   },
 };

@@ -38,8 +38,6 @@ h3 { font-size: 0.9rem; margin: 14px 0 6px; color: var(--muted); font-weight: 60
 .row + .row, .row + label, label + .status { margin-top: 10px; }
 .muted { color: var(--muted); }
 .version { text-align: center; font-size: 0.8rem; }
-.update-btn { display: block; width: 100%; margin-top: 8px; background: var(--ok); color: #0b1a10; font-weight: 600; }
-.update-btn[hidden] { display: none; }
 
 button {
   flex: 1 1 auto;

@@ -1,5 +1,4 @@
 import "./style.css";
-import { startPwa } from "./app/pwa";
 import { startRouter, type Route } from "./app/router";
 import { getDb } from "./storage/db";
 import { requestPersistence } from "./storage/persistence";
@@ -33,7 +32,6 @@ async function main(): Promise<void> {
   // (surtout une fois l'appli installée) ; sinon on réessaie depuis les réglages.
   void requestPersistence();
 
-  startPwa();
   mountCubeButton(document.getElementById("app")!);
   startRouter(routes, document.getElementById("view")!, document.getElementById("tabbar")!);
 }
