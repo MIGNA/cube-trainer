@@ -252,7 +252,16 @@ table.steps { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 .bar-cell { width: 40%; }
 .mini-fill { display: flex; height: 10px; min-width: 4px; border-radius: 4px; overflow: hidden; background: #262d37; }
 
-.replay-player { display: flex; justify-content: center; min-height: 200px; }
+.replay-player { position: relative; display: flex; justify-content: center; min-height: 200px; }
+.replay-overlay { position: absolute; top: 4px; left: 0; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.replay-clock { font-family: ui-monospace, monospace; font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.replay-step { color: var(--muted); font-size: 0.8rem; }
+.replay-controls { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.seg-group { display: flex; }
+.seg-group button { flex: none; padding: 6px 10px; font-size: 0.8rem; border-radius: 0; }
+.seg-group button:first-child { border-radius: 8px 0 0 8px; }
+.seg-group button:last-child { border-radius: 0 8px 8px 0; }
+.seg-group button.selected { outline: none; background: var(--accent); color: #fff; }
 .replay-player twisty-player { width: 100%; max-width: 360px; height: 300px; }
 .replay-alg { margin-top: 8px; font-family: ui-monospace, monospace; font-size: 0.9rem; line-height: 1.7; }
 .recon p { margin: 4px 0; font-family: ui-monospace, monospace; font-size: 0.9rem; }

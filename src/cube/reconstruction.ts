@@ -125,3 +125,40 @@ export function phases(analysis: SolveAnalysis): PhaseSummary[] {
   }
   return out;
 }
+
+// --- Replay en temps réel -------------------------------------------------
+
+/** Durée d'animation d'un quart de tour dans le replay temps réel (raccourcie si le suivant arrive avant). */
+export const REPLAY_TURN_MS = 100;
+
+export interface TimedSpan {
+  start: number;
+  end: number;
+}
+
+/**
+ * Plage d'animation de chaque quart de tour : il démarre à son horaire réel
+ * (ou dès que le précédent est fini) et dure au plus REPLAY_TURN_MS, sans
+ * chevaucher le suivant. Les plages ne se chevauchent jamais.
+ */
+export function replayTimeline(times: readonly number[]): TimedSpan[] {
+  const spans: TimedSpan[] = [];
+  let prevEnd = -Infinity;
+  times.forEach((t, k) => {
+    const start = Math.max(t, prevEnd);
+    const next = k + 1 < times.length ? times[k + 1] : Infinity;
+    const end = start + Math.max(20, Math.min(REPLAY_TURN_MS, next - start));
+    spans.push({ start, end });
+    prevEnd = end;
+  });
+  return spans;
+}
+
+/** Étape en cours à l'instant t (ms depuis le 1er mouvement), et si l'on est dans sa reconnaissance. */
+export function stepAt(analysis: SolveAnalysis, t: number): { id: StepId; recognizing: boolean } | null {
+  for (const step of analysis.steps) {
+    if (step.moves === 0) continue;
+    if (t <= step.endMs) return { id: step.id, recognizing: t < step.endMs - step.executionMs };
+  }
+  return null;
+}

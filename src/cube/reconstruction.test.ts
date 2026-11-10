@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeSolve } from "./cfop";
 import { FACES, SOLVED, applyAlg, invertAlg, isSolved } from "./facelets";
-import { faceMapForCross, fluency, mergeTurns, phases, reconstructSteps, relabelMoves, setupForCross } from "./reconstruction";
+import { faceMapForCross, fluency, mergeTurns, phases, reconstructSteps, relabelMoves, replayTimeline, setupForCross, stepAt } from "./reconstruction";
 
 const at = (ms: number[]) => ms.map((t) => ({ m: "R", t }));
 
@@ -53,5 +53,25 @@ describe("reconstructSteps / phases", () => {
     expect(steps.filter((s) => s.moves.length).length).toBe(1);
     expect(phases(a).map((p) => p.id)).toEqual(["cross", "f2l", "oll", "pll"]);
     expect(phases(a).reduce((s, p) => s + p.durationMs, 0)).toBe(a.totalMs);
+  });
+});
+
+describe("replayTimeline / stepAt", () => {
+  it("chaque quart de tour démarre à son horaire, sans chevauchement", () => {
+    const spans = replayTimeline([0, 50, 1000, 1010]);
+    expect(spans[0]).toEqual({ start: 0, end: 50 }); // raccourci : le suivant arrive à 50
+    expect(spans[1]).toEqual({ start: 50, end: 150 });
+    expect(spans[2].start).toBe(1000);
+    expect(spans[3].start).toBeGreaterThanOrEqual(spans[2].end);
+    for (let i = 1; i < spans.length; i++) expect(spans[i].start).toBeGreaterThanOrEqual(spans[i - 1].end);
+  });
+
+  it("stepAt : étape en cours et reconnaissance", () => {
+    const solution = ["R", "U'", "R'"];
+    const moves = solution.map((m, i) => ({ m, t: 1000 + i * 100 }));
+    const a = analyzeSolve(invertAlg(solution.join(" ")), moves)!;
+    expect(stepAt(a, 500)).toEqual({ id: "f2l4", recognizing: true });
+    expect(stepAt(a, 1150)).toEqual({ id: "f2l4", recognizing: false });
+    expect(stepAt(a, 99999)).toBeNull();
   });
 });

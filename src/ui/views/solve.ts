@@ -5,7 +5,9 @@ import type { View } from "../../app/router";
 import { OLL_CASES, PLL_CASES } from "../../cube/cases";
 import { STEP_LABELS, analyzeSolve, type CaseResult, type SolveAnalysis, type StepId, type StepSplit } from "../../cube/cfop";
 import type { Face } from "../../cube/facelets";
-import { reconstructSteps, setupForCross, type StepReconstruction } from "../../cube/reconstruction";
+import { faceMapForCross, reconstructSteps, relabelMoves, replayTimeline, setupForCross, stepAt } from "../../cube/reconstruction";
+import type { Move } from "cubing/alg";
+import type { TwistyPlayer } from "cubing/twisty";
 import type { Penalty, Solve } from "../../storage/db";
 import { deleteSolve, setPenalty, solves } from "../../storage/solves";
 import { formatTime } from "../../timer/format";
@@ -94,20 +96,57 @@ function stepsTable(analysis: SolveAnalysis): HTMLElement {
 // --- Reconstruction + replay ---------------------------------------------
 
 /** Algo au format cubing.js : une ligne par étape, nom de l'étape en commentaire. */
-function replayAlg(steps: StepReconstruction[]): string {
+function replayAlg(steps: { label: string; moves: string[] }[]): string {
   return steps
     .filter((s) => s.moves.length > 0)
     .map((s) => `${s.moves.join(" ")} // ${s.label}`)
     .join("\n");
 }
 
+type ReplayMode = "real" | "regular";
+const SPEEDS = [0.5, 1, 2] as const;
+
 function replayCard(analysis: SolveAnalysis, solve: Solve): { el: HTMLElement; dispose: () => void } {
-  const steps = reconstructSteps(analysis, solve.moves!);
+  const moves = solve.moves!;
+  const steps = reconstructSteps(analysis, moves);
   const setup = setupForCross(solve.scramble, analysis.crossFace);
+
+  // Temps réel : quarts de tour un par un (tels que reçus du cube), aux horaires réels.
+  const quarter = relabelMoves(
+    moves.map((x) => x.m),
+    faceMapForCross(analysis.crossFace),
+  );
+  let from = 0;
+  const realSteps = analysis.steps.map((s) => {
+    const slice = quarter.slice(from, from + s.moves);
+    from += s.moves;
+    return { label: STEP_LABELS[s.id], moves: slice };
+  });
+  const realAlg = replayAlg(realSteps);
+  const spans = replayTimeline(moves.map((x) => x.t));
+
+  let mode: ReplayMode = "real";
+  let speed: (typeof SPEEDS)[number] = 1;
+
   const playerBox = h("div", { class: "replay-player" }, h("p", { class: "muted" }, "Chargement du cube 3D…"));
   const algBox = h("div", { class: "replay-alg" });
+  const clock = h("span", { class: "replay-clock" }, "0.00");
+  const stepEl = h("span", { class: "replay-step" });
+  const overlay = h("div", { class: "replay-overlay" }, clock, stepEl);
 
-  // Reconstruction texte, toujours visible (le replay 3D se charge à côté).
+  const modeBtns = {
+    real: h("button", { class: "secondary", onclick: () => setMode("real") }, "Temps réel"),
+    regular: h("button", { class: "secondary", onclick: () => setMode("regular") }, "Régulier"),
+  };
+  const speedBtns = SPEEDS.map((v) => h("button", { class: "secondary", onclick: () => setSpeed(v) }, `×${v}`));
+  const controls = h(
+    "div",
+    { class: "replay-controls" },
+    h("div", { class: "seg-group" }, modeBtns.real, modeBtns.regular),
+    h("div", { class: "seg-group" }, ...speedBtns),
+  );
+
+  // Reconstruction texte, affichée tant que le replay 3D n'est pas chargé (ou s'il échoue).
   const text = h(
     "div",
     { class: "recon" },
@@ -123,32 +162,89 @@ function replayCard(analysis: SolveAnalysis, solve: Solve): { el: HTMLElement; d
   );
 
   let disposed = false;
-  let player: HTMLElement | null = null;
-  void import("cubing/twisty")
-    .then(({ TwistyPlayer, TwistyAlgViewer }) => {
+  let player: TwistyPlayer | null = null;
+  let MoveClass: typeof Move | null = null;
+
+  function showTime(ms: number): void {
+    // Le chrono et l'étape n'ont de sens qu'en temps réel (en régulier, la durée est artificielle).
+    overlay.hidden = mode !== "real";
+    const t = Math.max(0, ms);
+    clock.textContent = sec(Math.min(t, analysis.totalMs));
+    const current = stepAt(analysis, t);
+    stepEl.textContent = current ? `${STEP_LABELS[current.id]}${current.recognizing ? " · reconnaissance" : ""}` : "résolu";
+  }
+
+  function apply(): void {
+    modeBtns.real.classList.toggle("selected", mode === "real");
+    modeBtns.regular.classList.toggle("selected", mode === "regular");
+    speedBtns.forEach((b, i) => b.classList.toggle("selected", SPEEDS[i] === speed));
+    if (!player || !MoveClass) return;
+    const M = MoveClass;
+    player.pause();
+    if (mode === "real") {
+      player.alg = realAlg;
+      player.experimentalModel.animationTimelineLeavesRequest.set(
+        // Horaires en ms : cubing.js les « marque » (MillisecondTimestamp), d'où le transtypage.
+        spans.map((span, k) => ({ animLeaf: M.fromString(quarter[k]), start: span.start, end: span.end })) as never,
+      );
+      player.tempoScale = speed;
+    } else {
+      player.experimentalModel.animationTimelineLeavesRequest.set(null);
+      player.alg = replayAlg(steps);
+      player.tempoScale = 1.5 * speed;
+    }
+    player.jumpToStart();
+    showTime(0);
+  }
+
+  function setMode(m: ReplayMode): void {
+    mode = m;
+    apply();
+  }
+  function setSpeed(v: (typeof SPEEDS)[number]): void {
+    speed = v;
+    if (player) player.tempoScale = mode === "real" ? v : 1.5 * v;
+    apply();
+  }
+
+  void Promise.all([import("cubing/twisty"), import("cubing/alg")])
+    .then(([{ TwistyPlayer, TwistyAlgViewer }, { Move }]) => {
       if (disposed) return;
+      MoveClass = Move;
       const p = new TwistyPlayer({
         puzzle: "3x3x3",
         experimentalSetupAlg: setup,
-        alg: replayAlg(steps),
         background: "none",
         controlPanel: "bottom-row",
         hintFacelets: "none",
-        tempoScale: 1.5,
       });
       player = p;
-      playerBox.replaceChildren(p);
+      p.experimentalModel.detailedTimelineInfo.addFreshListener((info) => showTime(info.timestamp));
+      playerBox.replaceChildren(p, overlay);
       algBox.replaceChildren(new TwistyAlgViewer({ twistyPlayer: p }));
       text.hidden = true;
+      apply();
     })
     .catch(() => {
       playerBox.replaceChildren(h("p", { class: "muted" }, "Replay 3D indisponible."));
+      controls.hidden = true;
     });
 
+  apply();
   return {
-    el: h("section", { class: "card" }, h("h2", {}, "Replay"), playerBox, h("p", { class: "muted small" }, "Touche un mouvement pour y aller."), algBox, text),
+    el: h(
+      "section",
+      { class: "card" },
+      h("h2", {}, "Replay"),
+      controls,
+      playerBox,
+      h("p", { class: "muted small" }, "Touche un mouvement pour y aller."),
+      algBox,
+      text,
+    ),
     dispose: () => {
       disposed = true;
+      player?.pause();
       player?.remove();
     },
   };
