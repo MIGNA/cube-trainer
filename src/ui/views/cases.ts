@@ -1,6 +1,7 @@
 // Onglet Algos :
 // - #/algos : catalogue par ensemble (CFOP : 21 PLL et 57 OLL ; 2-look ; débutant à venir),
 //   filtrable par état (filtres combinables), en blocs OLL/PLL repliables ;
+// - #/algos/notation : page Notation (voir notation.ts) ;
 // - #/algos/<id> : fiche d'un cas (état d'apprentissage, set-up, mes algos, suggestions, ajout d'un algo).
 // L'entraînement (étapes 5-7) piochera dans les cas « à travailler » avec l'algo choisi ici.
 
@@ -11,6 +12,7 @@ import { caseKind, checkCaseAlg, type CaseDef } from "../../cube/cases";
 import { getSetting, setSetting, type CaseStatus } from "../../storage/settings";
 import { caseSvg } from "../case-svg";
 import { setupPanel } from "../setup-panel";
+import { mountNotation } from "./notation";
 import { h } from "../dom";
 
 /** Lien vers la fiche d'un cas ("T", "OLL 27"…). */
@@ -74,6 +76,7 @@ let lastViewed: string | null = null;
 export const casesView: View = {
   title: "Algos",
   mount(container, params) {
+    if (params[0] === "notation") return mountNotation(container);
     const c = params[0] ? findCase(decodeURIComponent(params[0])) : undefined;
     if (c) return mountCase(container, c);
     mountCatalogue(container);
@@ -205,7 +208,7 @@ function mountCatalogue(container: HTMLElement): void {
   }
 
   container.append(
-    h("h1", {}, "Algos"),
+    h("div", { class: "algos-head" }, h("h1", {}, "Algos"), h("a", { href: algoHref("notation"), class: "back" }, "Notation ›")),
     h(
       "p",
       { class: "muted small" },

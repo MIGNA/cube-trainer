@@ -10,7 +10,7 @@ import type { CaseKind } from "../cube/cases";
 const NS = "http://www.w3.org/2000/svg";
 
 // Repère du schéma : dernière couche (jaune) en haut, vert devant.
-const COLORS: Record<Face, string> = { U: "#ffd500", D: "#f4f4f4", F: "#00a651", R: "#d7263d", B: "#1e64d6", L: "#ff7a1a" };
+export const COLORS: Record<Face, string> = { U: "#ffd500", D: "#f4f4f4", F: "#00a651", R: "#d7263d", B: "#1e64d6", L: "#ff7a1a" };
 const GRAY = "#4a525e";
 const OFF = "#2a3039";
 

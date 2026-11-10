@@ -358,3 +358,14 @@ body.timing .cube-button { display: none; }
 .case-group + .case-group { margin-top: 14px; }
 .case-group-title { margin: 0 0 8px; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 .case-group-hint { margin: -4px 0 10px; }
+
+/* Page Notation */
+.algos-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.algos-head .back { margin: 0; }
+.move-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
+.move-card { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; min-width: 0; }
+.move-card code { font-size: 1.1rem; font-weight: 700; }
+.move-card small { font-size: 0.75rem; line-height: 1.35; }
+.notation-terms { margin: 8px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; }
+.notation-terms dt { font-weight: 700; font-family: monospace; }
+.notation-terms dd { margin: 0; color: var(--muted); font-size: 0.85rem; }
