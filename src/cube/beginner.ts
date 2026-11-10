@@ -1,5 +1,4 @@
-// Synthèse de la méthode débutant (couche par couche), d'après Francocube
-// (https://www.francocube.com/cyril/rubiks-cube), croix par la marguerite.
+// Synthèse de la méthode débutant (couche par couche), croix par la marguerite.
 // Données pures : l'affichage est dans ui/beginner-summary.ts.
 // Les effets décrits (quelle pièce bouge, laquelle reste) sont vérifiés par beginner.test.ts.
 
@@ -31,39 +30,41 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
   {
     title: "1a. Croix blanche : la marguerite",
     goal: "Placer les 4 arêtes blanches en croix, alignées avec les centres de leurs couleurs.",
-    hold: "Jaune en haut.",
+    hold: "Jaune en haut, blanc en bas : on garde le cube dans ce sens jusqu'à la fin.",
     daisy: true,
     text: [
       "Faire la marguerite : amener les 4 arêtes blanches autour du centre jaune, blanc vers le haut (cœur jaune, pétales blancs).",
-      "Avant de monter une arête, tourner U pour qu'aucun pétale déjà posé ne soit à l'arrivée (sinon on l'éjecte).",
-      "Descendre les pétales : tourner U jusqu'à ce que l'autre couleur d'un pétale soit au-dessus du centre de même couleur, puis faire un demi-tour de cette face (F2). Quatre fois.",
+      "Avant de monter une arête, tourner la face du haut pour qu'aucun pétale déjà posé ne soit à l'arrivée (sinon on l'éjecte).",
+      "Descendre les pétales : tourner la face du haut jusqu'à ce que l'autre couleur d'un pétale soit juste au-dessus du centre de la même couleur, puis faire un demi-tour de cette face de côté : le pétale descend en bas, à sa place. Quatre fois.",
     ],
     algs: [],
-    tips: ["Arête blanche en bas, blanc dessous : demi-tour de sa face (F2…). Arête sur la couronne du milieu : un quart de tour de la face de côté (R, F'…). Arête en haut, blanc sur le côté : F U' R."],
+    tips: ["Arête blanche en bas, blanc dessous : un demi-tour de la face de côté où elle se trouve la fait monter.", "Arête sur la couronne du milieu : un quart de tour de la face de côté qui la touche la fait monter (dans le sens qui met le blanc en haut).", "Arête en haut mais blanc sur le côté : la mettre devant, puis F U' R (face de devant dans le sens des aiguilles d'une montre, face du haut vers la droite, face de droite vers le haut)."],
   },
   {
     title: "1b. Coins blancs",
     goal: "Finir la face blanche et sa couronne.",
-    hold: "Retourner le cube : croix blanche en haut. Amener le coin sous sa place (en bas, devant à droite).",
+    hold: "Croix blanche en bas. Tourner la face du haut pour amener le coin blanc en haut, juste au-dessus de sa place (devant à droite).",
     algs: [
-      { name: "Blanc devant", alg: "F D F'", when: "L'autocollant blanc du coin regarde vers toi." },
-      { name: "Blanc à droite", alg: "R' D' R", when: "L'autocollant blanc du coin regarde vers la droite." },
-      { name: "Blanc dessous", alg: "F D' F' R' D2 R", when: "L'autocollant blanc du coin regarde vers le bas." },
+      {
+        name: "Le sexy move, répété",
+        alg: "R U R' U'",
+        when: "À refaire jusqu'à ce que le coin soit en place, blanc dessous : 1, 3 ou 5 fois selon le sens du coin.",
+      },
     ],
-    tips: ["Coin blanc déjà en haut mais mal placé : le sortir avec une des formules, puis recommencer."],
+    tips: ["Coin blanc en bas mais mal placé ou mal tourné : un sexy move (la formule ci-dessus, une fois) le fait remonter, puis on recommence."],
   },
   {
     title: "2. Deuxième couronne : le Belge",
     goal: "Placer les 4 arêtes de la couronne du milieu (sans jaune).",
-    hold: "Face blanche toujours en haut. Tourner D pour amener l'arête sous le centre de sa couleur (devant) : elle doit monter à droite ou à gauche.",
+    hold: "Blanc toujours en bas. Tourner la face du haut pour amener l'arête (en haut) au-dessus du centre de sa couleur de devant : elle doit descendre à droite ou à gauche.",
     algs: [
       {
         name: "Le Belge (vers la droite)",
-        alg: "D' R' D R D F D' F'",
+        alg: "U R U' R' U' F' U F",
         when: "L'autre couleur de l'arête est celle du centre de droite.",
         story: [
           "Il part à gauche (il est belge…)",
-          "Ses copains de droite descendent pour le rappeler",
+          "Ses copains de droite montent le chercher",
           "Il revient sur la droite",
           "Ses copains rentrent à la maison",
           "Emporté par son élan, il continue",
@@ -72,17 +73,16 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
           "La face se remet en place",
         ],
       },
-      { name: "Le Belge (vers la gauche)", alg: "D L D' L' D' F' D F", when: "Même histoire en miroir : l'arête doit aller à gauche." },
+      { name: "Le Belge (vers la gauche)", alg: "U' L' U L U F U' F'", when: "Même histoire en miroir : l'arête doit aller à gauche." },
     ],
     tips: ["Arête à sa place mais retournée : la sortir avec un Belge (n'importe quelle arête à la place), puis la replacer normalement."],
   },
   {
     title: "3. Croix jaune",
     goal: "Orienter puis placer les 4 arêtes jaunes.",
-    hold: "Retourner le cube : face blanche en bas, jaune en haut.",
     algs: [
       { name: "Deux arêtes opposées", alg: "F R U R' U' F'", when: "Ligne jaune horizontale, comme sur le schéma.", diagram: "eo" },
-      { name: "Deux arêtes voisines", alg: "F U R U' R' F'", when: "L jaune tenu comme sur le schéma (la même formule à l'envers).", diagram: "eo" },
+      { name: "Deux arêtes voisines", alg: "f R U R' U' f'", when: "L jaune tenu comme sur le schéma (f : les deux couches de devant tournent ensemble).", diagram: "eo" },
       {
         name: "La chaise",
         alg: "R U2 R' U' R U' R'",
@@ -136,5 +136,3 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
     ],
   },
 ];
-
-export const BEGINNER_SOURCE = "https://www.francocube.com/cyril/rubiks-cube";

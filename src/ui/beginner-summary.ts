@@ -2,10 +2,12 @@
 // les étapes dans l'ordre, chaque formule avec ses triggers et son histoire.
 // Pas d'état d'apprentissage ni de set-up : simple aide-mémoire.
 
-import { BEGINNER_SOURCE, BEGINNER_STEPS, type BeginnerAlg, type BeginnerStep } from "../cube/beginner";
+import { BEGINNER_STEPS, type BeginnerAlg, type BeginnerStep } from "../cube/beginner";
 import { caseView } from "../cube/case-diagram";
 import { parseAnyAlg, formatMove } from "../cube/facelets";
+import { describeMove } from "../cube/move-names";
 import { algView } from "./alg-view";
+import { moveSvg } from "./move-svg";
 import { COLORS, caseSvg } from "./case-svg";
 import { h } from "./dom";
 
@@ -38,13 +40,26 @@ function algBlock(a: BeginnerAlg): HTMLElement {
       a.diagram ? caseSvg(caseView(a.alg), a.diagram, 56) : null,
       h("div", {}, h("strong", {}, a.name), h("p", { class: "muted small" }, a.when), algView(a.alg, { interactive: true, class: "beginner-formula" })),
     ),
-    a.story
-      ? h(
-          "ol",
-          { class: "beginner-story" },
-          ...a.story.map((line, i) => h("li", {}, h("code", {}, moves[i]), " ", line)),
-        )
-      : null,
+    // Chaque mouvement traduit en français, avec la ligne de l'histoire s'il y en a une.
+    h(
+      "ol",
+      { class: "beginner-moves" },
+      ...moves.map((m, i) =>
+        h(
+          "li",
+          {},
+          h("code", {}, m),
+          h("span", {}, describeMove(m) ?? m),
+          a.story ? h("em", {}, a.story[i]) : null,
+        ),
+      ),
+    ),
+    // Puis la série des petits dessins, dans l'ordre.
+    h(
+      "div",
+      { class: "beginner-drawings", "aria-hidden": "true" },
+      ...moves.map((m) => h("figure", {}, moveSvg(m, 46), h("figcaption", {}, m))),
+    ),
   );
 }
 
@@ -72,13 +87,7 @@ export function beginnerSummary(): HTMLElement {
   return h(
     "div",
     { class: "beginner" },
-    h(
-      "p",
-      { class: "muted small" },
-      "Méthode couche par couche, d'après ",
-      h("a", { href: BEGINNER_SOURCE, target: "_blank", rel: "noopener" }, "Francocube"),
-      ". Touche un passage souligné pour voir le nom du trigger.",
-    ),
+    h("p", { class: "muted small" }, "Méthode couche par couche. Touche un passage souligné pour voir le nom du trigger."),
     ...BEGINNER_STEPS.map(stepCard),
   );
 }

@@ -18,11 +18,17 @@ describe("méthode débutant", () => {
     for (const a of algs) if (a.story) expect(a.story.length, a.name).toBe(parseAnyAlg(a.alg).length);
   });
 
-  it("coins blancs (blanc en haut) : le coin sous sa place monte, blanc dessus", () => {
-    // Autocollant qui arrive en haut du coin UFR (n° 8) depuis le coin DRF : F (26), R (15), D (29).
-    expect(sticker(byName("Blanc devant"), 8)).toBe(26);
-    expect(sticker(byName("Blanc à droite"), 8)).toBe(15);
-    expect(sticker(byName("Blanc dessous"), 8)).toBe(29);
+  it("coins blancs : le sexy move répété 1, 3 ou 5 fois place le coin d'en haut, quel que soit son sens", () => {
+    const sexy = byName("Le sexy move, répété");
+    const rep = (k: number) => Array(k).fill(sexy).join(" ");
+    // Le coin DRF en haut (UFR) avec ses 3 orientations possibles = cube résolu après 1, 3 ou 5 sexy moves « à l'envers ».
+    const twists = [1, 3, 5].map((k) => {
+      const c = readOrbit(applyAlg(SOLVED, rep(6 - k)), CORNERS);
+      expect(c.pieces[0], `${k}`).toBe(4);
+      return c.orientation[0];
+    });
+    expect(new Set(twists).size).toBe(3);
+    expect(applyAlg(SOLVED, rep(6))).toBe(SOLVED);
   });
 
   it("marguerite : F U' R remonte une arête blanche couchée", () => {
@@ -30,15 +36,18 @@ describe("méthode débutant", () => {
     expect([1, 3, 5, 7]).toContain(pos);
   });
 
-  it("le Belge garde la face du haut et monte l'arête de devant en bas à sa place", () => {
-    // Première couche (en haut) : face U + rangée du haut de F, R, L, B.
-    const firstLayer = [...Array(9).keys(), 18, 19, 20, 9, 10, 11, 36, 37, 38, 45, 46, 47];
+  it("le Belge garde la face du bas et descend l'arête de devant à sa place", () => {
+    // Première couche (en bas) : face D + rangée du bas de F, R, L, B.
+    const firstLayer = [27, 28, 29, 30, 31, 32, 33, 34, 35, 24, 25, 26, 15, 16, 17, 42, 43, 44, 51, 52, 53];
     for (const name of ["Le Belge (vers la droite)", "Le Belge (vers la gauche)"]) {
       expect(allSolved(applyAlg(SOLVED, byName(name)), firstLayer), name).toBe(true);
     }
-    // Droite : la face avant de l'arête DF (25) arrive devant dans le créneau FR (23), son dessous (28) à droite (12).
-    expect(sticker(byName("Le Belge (vers la droite)"), 23)).toBe(25);
-    expect(sticker(byName("Le Belge (vers la droite)"), 12)).toBe(28);
+    // Droite : la face avant de l'arête UF (19) arrive devant dans le créneau FR (23), son dessus (7) à droite (12).
+    expect(sticker(byName("Le Belge (vers la droite)"), 23)).toBe(19);
+    expect(sticker(byName("Le Belge (vers la droite)"), 12)).toBe(7);
+    // Gauche : vers le créneau FL (21 devant, 41 à gauche).
+    expect(sticker(byName("Le Belge (vers la gauche)"), 21)).toBe(19);
+    expect(sticker(byName("Le Belge (vers la gauche)"), 41)).toBe(7);
   });
 
   it("dernière couche : les deux premières couches restent intactes", () => {
