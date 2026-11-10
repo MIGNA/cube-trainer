@@ -53,7 +53,7 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
 
   const connectBtn = h("button", { onclick: () => void connectGanCube(macInput.value) }, "Connecter le cube");
   const keyboardBtn = h("button", { class: "secondary", onclick: () => void connectKeyboardCube() }, "Cube clavier (dev)");
-  const disconnectBtn = h("button", { class: "secondary", onclick: () => void disconnectCube() }, "Déconnecter");
+  const disconnectBtn = h("button", { class: "secondary danger", onclick: () => void disconnectCube() }, "Déconnecter");
   const readBtn = h("button", { class: "secondary", onclick: () => void getCube()?.requestFacelets() }, "Vérifier la synchro");
   const resetBtn = h("button", { class: "secondary", onclick: () => void getCube()?.markSolved() }, "Marquer comme résolu");
 

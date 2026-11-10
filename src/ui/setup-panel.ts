@@ -32,21 +32,21 @@ export function setupPanel(c: CaseDef): SetupPanel {
 
   const setupEl = h("code", { class: "setup-alg" });
   const guide = h("div", { class: "scramble-box setup-guide" });
-  const prepareBtn = h("button", { onclick: () => void prepare() }, "Préparer sur le cube");
+  const prepareBtn = h("button", { onclick: () => void prepare() }, "Préparer depuis l'état actuel");
   const actions = h("div", { class: "setup-actions" }, prepareBtn);
 
   const el = h(
     "section",
     { class: "card" },
     h("h2", {}, "Set-up"),
+    // Façon de tenir le cube : une pastille de couleur en face de chaque consigne.
     h(
-      "p",
+      "div",
       { class: "muted small setup-hold" },
-      // Pastille jaune au-dessus du vert : le cube vu de face (haut jaune, avant vert).
-      h("span", { class: "hold-swatch", "aria-hidden": "true" }, h("i", { class: "yellow" }), h("i", { class: "green" })),
-      "Depuis le cube résolu, jaune en haut, vert devant :",
+      h("p", {}, h("i", { class: "hold-swatch yellow", "aria-hidden": "true" }), "jaune en haut,"),
+      h("p", {}, h("i", { class: "hold-swatch green", "aria-hidden": "true" }), "vert devant :"),
     ),
-    setupEl,
+    h("p", { class: "setup-line" }, h("span", { class: "muted small" }, "Cube résolu : "), setupEl),
     actions,
     guide,
   );
@@ -72,7 +72,7 @@ export function setupPanel(c: CaseDef): SetupPanel {
   function render(): void {
     const connected = cubeStatus.get().state === "connected";
     actions.hidden = !connected;
-    prepareBtn.textContent = tracker ? "Recalculer" : "Préparer sur le cube";
+    prepareBtn.textContent = tracker ? "Recalculer" : "Préparer depuis l'état actuel";
     if (!connected) {
       tracker = null;
       guide.replaceChildren();
