@@ -1,6 +1,16 @@
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import pkg from "./package.json" with { type: "json" };
+
+/** Identifiant court du commit construit (affiché dans les réglages pour savoir quelle version tourne). */
+function commitId(): string {
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return process.env.GITHUB_SHA?.slice(0, 7) ?? "inconnu";
+  }
+}
 
 export default defineConfig(({ command }) => ({
   // En production, l'appli est servie par GitHub Pages sous /cube-trainer/
@@ -8,6 +18,8 @@ export default defineConfig(({ command }) => ({
   base: command === "build" ? "/cube-trainer/" : "/",
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_COMMIT__: JSON.stringify(commitId()),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
   },
   // cubing.js lance un worker via new URL(…, import.meta.url) : le pré-bundling
   // de Vite en dev casserait ce chemin.
@@ -31,7 +43,10 @@ export default defineConfig(({ command }) => ({
   },
   plugins: [
     VitePWA({
-      registerType: "autoUpdate",
+      // « prompt » : une nouvelle version attend que l'utilisateur la demande
+      // (bouton dans les réglages, voir src/app/pwa.ts) ; enregistrement fait dans main.ts.
+      registerType: "prompt",
+      injectRegister: false,
       workbox: {
         // Tout mettre en cache pour un fonctionnement 100 % hors ligne (icônes comprises).
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
