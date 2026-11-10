@@ -5,6 +5,7 @@ import { requestPersistence } from "./storage/persistence";
 import { loadSolves } from "./storage/solves";
 import { placeholderView } from "./ui/views/placeholder";
 import { settingsView } from "./ui/views/settings";
+import { solveView } from "./ui/views/solve";
 import { statsView } from "./ui/views/stats";
 import { timerView } from "./ui/views/timer";
 
@@ -18,6 +19,7 @@ const routes: Route[] = [
   },
   { path: "stats", label: "Stats", icon: "📊", view: statsView },
   { path: "reglages", label: "Réglages", icon: "⚙️", view: settingsView },
+  { path: "solve", tab: "stats", view: solveView },
 ];
 
 async function main(): Promise<void> {

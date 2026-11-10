@@ -66,7 +66,13 @@ export const timerView: View = {
       DNF: h("button", { class: "secondary", onclick: () => void applyPenalty("DNF") }, "DNF"),
     } satisfies Record<Penalty, HTMLButtonElement>;
     const deleteBtn = h("button", { class: "secondary danger", onclick: () => void removeLast() }, "Supprimer");
-    const lastActions = h("div", { class: "row last-actions" }, penaltyBtns.none, penaltyBtns["+2"], penaltyBtns.DNF, deleteBtn);
+    const analysisLink = h("a", { class: "analysis-link" }, "Voir l'analyse ›");
+    const lastActions = h(
+      "div",
+      { class: "last-solve" },
+      h("div", { class: "row last-actions" }, penaltyBtns.none, penaltyBtns["+2"], penaltyBtns.DNF, deleteBtn),
+      analysisLink,
+    );
 
     const zone = h("div", { class: "timer-zone" }, display, hint, cancelBtn);
 
@@ -270,6 +276,8 @@ export const timerView: View = {
       lastActions.hidden = timing || !lastSolve;
       if (lastSolve) {
         for (const [p, btn] of Object.entries(penaltyBtns)) btn.classList.toggle("selected", p === lastSolve.penalty);
+        analysisLink.hidden = !lastSolve.moves?.length;
+        analysisLink.href = `#/solve/${lastSolve.id}`;
       }
     }
 

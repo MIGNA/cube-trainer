@@ -185,8 +185,8 @@ body.timing #tabbar { display: none; }
 .solve-index { grid-area: idx; }
 .solve-time { grid-area: time; font-family: ui-monospace, monospace; font-size: 1rem; color: var(--text); }
 .solve-date { grid-area: date; font-size: 0.75rem; }
-.solve-open { padding: 0 0 12px; }
-.solve-details .row { margin-top: 8px; }
+
+
 
 /* --- Chrono connecté -------------------------------------------------- */
 
@@ -207,3 +207,50 @@ body.timing #tabbar { display: none; }
 .corrections { margin: 6px 0 0; min-height: 1.2em; color: #ffcc4d; font-family: ui-monospace, monospace; }
 
 .timer-zone .cancel { flex: none; margin-top: 24px; }
+
+/* --- Détail d'un solve ------------------------------------------------ */
+
+.last-solve { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.analysis-link, .back { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+.back { display: inline-block; margin-bottom: 10px; }
+
+.solve-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.big-time { font-family: ui-monospace, monospace; font-size: 2rem; font-weight: 700; }
+
+.summary-line { margin: 0 0 18px; text-align: center; color: var(--muted); font-family: ui-monospace, monospace; }
+.summary-line .sep { margin: 0 8px; opacity: 0.5; }
+
+/* Couleurs des phases : --c = exécution ; la reconnaissance est la même couleur assombrie. */
+.phase-cross, .step-cross { --c: #a173e0; }
+.phase-f2l, .step-f2l { --c: #7468e6; --c2: #5a50c4; }
+.phase-oll, .step-oll { --c: #4f9cff; }
+.phase-pll, .step-pll { --c: #3ccf9a; }
+
+.phase-bar { display: flex; gap: 3px; }
+.phase { flex-basis: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.phase strong { font-family: ui-monospace, monospace; font-size: 0.95rem; }
+.phase small { color: var(--muted); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.phase-track { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #262d37; }
+.seg { flex-basis: 0; background: var(--c); }
+.seg.alt { background: var(--c2); }
+.seg.reco { background: color-mix(in srgb, var(--c) 35%, var(--card)); }
+.seg.reco.alt { background: color-mix(in srgb, var(--c2) 35%, var(--card)); }
+
+.legend { margin: 14px 0 0; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--accent); vertical-align: middle; }
+.swatch.reco { background: color-mix(in srgb, var(--accent) 35%, var(--card)); }
+.small { font-size: 0.8rem; }
+
+.table-wrap { overflow-x: auto; }
+table.steps { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.steps th, .steps td { padding: 7px 4px; text-align: right; border-top: 1px solid var(--border); white-space: nowrap; }
+.steps thead th { border-top: none; color: var(--muted); font-weight: 500; font-size: 0.75rem; }
+.steps tbody th, .steps tfoot th { text-align: left; font-weight: 600; border-left: 3px solid var(--c, transparent); padding-left: 8px; }
+.steps .case { display: block; font-weight: 400; color: var(--muted); font-size: 0.75rem; }
+.steps tfoot { font-weight: 700; }
+
+.replay-player { display: flex; justify-content: center; min-height: 200px; }
+.replay-player twisty-player { width: 100%; max-width: 360px; height: 300px; }
+.replay-alg { margin-top: 8px; font-family: ui-monospace, monospace; font-size: 0.9rem; line-height: 1.7; }
+.recon p { margin: 4px 0; font-family: ui-monospace, monospace; font-size: 0.9rem; }
+.recon-label { display: inline-block; min-width: 4.5em; margin-right: 6px; color: var(--c); font-family: system-ui, sans-serif; font-weight: 600; }

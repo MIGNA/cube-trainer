@@ -1,6 +1,6 @@
 import type { View } from "../../app/router";
-import type { Penalty, Solve } from "../../storage/db";
-import { deleteSolve, setPenalty, solves } from "../../storage/solves";
+import type { Solve } from "../../storage/db";
+import { solves } from "../../storage/solves";
 import { formatTime } from "../../timer/format";
 import { averageOf, bestAverage, bestSingle, effectiveTime, meanOf, rollingAverages } from "../../timer/stats";
 import { h } from "../dom";
@@ -31,7 +31,6 @@ export const statsView: View = {
   title: "Statistiques",
   mount(container) {
     let shown = PAGE;
-    let openId: number | null = null;
 
     const summary = h("section", { class: "card stats-grid" });
     const list = h("ul", { class: "solve-list" });
@@ -39,25 +38,6 @@ export const statsView: View = {
     const empty = h("p", { class: "muted" }, "Aucun solve pour l'instant. Lance le chrono !");
 
     container.append(h("h1", {}, "Statistiques"), summary, h("section", { class: "card" }, h("h2", {}, "Historique"), empty, list, more));
-
-    function actions(solve: Solve): HTMLElement {
-      const id = solve.id!;
-      const btn = (label: string, penalty: Penalty) =>
-        h("button", { class: `secondary${solve.penalty === penalty ? " selected" : ""}`, onclick: () => void setPenalty(id, penalty) }, label);
-      return h(
-        "div",
-        { class: "solve-details" },
-        h("p", { class: "scramble small" }, solve.scramble),
-        h(
-          "div",
-          { class: "row" },
-          btn("OK", "none"),
-          btn("+2", "+2"),
-          btn("DNF", "DNF"),
-          h("button", { class: "secondary danger", onclick: () => void deleteSolve(id) }, "Supprimer"),
-        ),
-      );
-    }
 
     function render(all: readonly Solve[]): void {
       summary.replaceChildren(
@@ -80,15 +60,14 @@ export const statsView: View = {
         const solve = all[i];
         const row = h(
           "li",
-          { class: "solve-row", onclick: () => { openId = openId === solve.id ? null : solve.id!; render(solves.get()); } },
+          { class: "solve-row", onclick: () => { location.hash = `#/solve/${solve.id}`; } },
           h("span", { class: "muted solve-index" }, String(i + 1)),
           h("span", { class: "solve-time" }, formatSolve(solve)),
           h("span", { class: "muted" }, `ao5 ${formatTime(ao5[i])}`),
           h("span", { class: "muted" }, `ao12 ${formatTime(ao12[i])}`),
-          h("span", { class: "muted solve-date" }, formatDate(solve.date)),
+          h("span", { class: "muted solve-date" }, formatDate(solve.date), solve.moves?.length ? " · 🧊 analyse" : ""),
         );
         rows.push(row);
-        if (openId === solve.id) rows.push(h("li", { class: "solve-open" }, actions(solve)));
       }
       list.replaceChildren(...rows);
       empty.hidden = all.length > 0;
