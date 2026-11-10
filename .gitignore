@@ -1,6 +1,39 @@
+# Dépendances
 node_modules/
+
+# Builds et caches Vite / PWA
 dist/
+dev-dist/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# Variables d'environnement (garder seulement l'exemple)
+.env
+.env.*
+!.env.example
 *.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Certificats locaux (HTTPS de dev)
+*.pem
+*.key
+*.crt
+
+# Système
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Éditeurs (on partage seulement extensions.json et settings.json de VS Code)
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
