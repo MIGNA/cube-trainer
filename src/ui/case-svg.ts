@@ -10,7 +10,9 @@ import type { CaseKind } from "../cube/cases";
 const NS = "http://www.w3.org/2000/svg";
 
 // Repère du schéma : dernière couche (jaune) en haut, vert devant.
-export const COLORS: Record<Face, string> = { U: "#ffd500", D: "#f4f4f4", F: "#00a651", R: "#d7263d", B: "#1e64d6", L: "#ff7a1a" };
+// Repère joueur : jaune en haut, vert devant → orange à droite, rouge à gauche
+// (schéma de couleurs standard ; le cube GAN, blanc en haut, a le rouge à droite).
+export const COLORS: Record<Face, string> = { U: "#ffd500", D: "#f4f4f4", F: "#00a651", R: "#ff7a1a", B: "#1e64d6", L: "#d7263d" };
 const GRAY = "#4a525e";
 const OFF = "#2a3039";
 

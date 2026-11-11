@@ -1,12 +1,20 @@
 // Synthèse de la méthode débutant (couche par couche), croix par la marguerite.
 // Données pures : l'affichage est dans ui/beginner-summary.ts.
 // Les effets décrits (quelle pièce bouge, laquelle reste) sont vérifiés par beginner.test.ts.
+// Textes pour débutants : pas de notation, les gestes viennent de move-names.ts.
+
+import { describeMove } from "./move-names";
+
+/** Geste en français d'un mouvement (« face de droite, vers le haut »). */
+const say = (move: string): string => describeMove(move)!;
 
 export interface BeginnerAlg {
   name: string;
   alg: string;
   /** Quand l'utiliser / comment tenir le cube. */
   when: string;
+  /** Pourquoi ça marche, en une phrase. */
+  why?: string;
   /** Histoire, une ligne par mouvement (même nombre que de mouvements). */
   story?: string[];
   /** Schéma de dernière couche à afficher (cas de croix jaune). */
@@ -43,15 +51,37 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
   {
     title: "1b. Coins blancs",
     goal: "Finir la face blanche et sa couronne.",
-    hold: "Croix blanche en bas. Tourner la face du haut pour amener le coin blanc en haut, juste au-dessus de sa place (devant à droite).",
+    hold: "Croix blanche en bas. Tourner la face du haut pour amener le coin blanc en haut, juste au-dessus de sa place (devant à droite). Puis : ouvrir, glisser, refermer.",
     algs: [
       {
-        name: "Le sexy move, répété",
-        alg: "R U R' U'",
-        when: "À refaire jusqu'à ce que le coin soit en place, blanc dessous : 1, 3 ou 5 fois selon le sens du coin.",
+        name: "Blanc vers la droite",
+        alg: "R U R'",
+        when: "L'autocollant blanc du coin regarde vers la droite.",
+        why: `On ouvre : la place monte (${say("R")}). Le coin glisse dedans (${say("U")}). On referme (${say("R'")}).`,
+      },
+      {
+        name: "Blanc vers l'avant",
+        alg: "F' U' F",
+        when: "L'autocollant blanc du coin regarde vers toi.",
+        why: `Le même geste, par l'avant : on ouvre (${say("F'")}), le coin glisse dedans (${say("U'")}), on referme (${say("F")}).`,
+      },
+      {
+        name: "Blanc vers le haut",
+        alg: "R U2 R' U' R U R'",
+        when: "L'autocollant blanc du coin regarde vers le haut.",
+        why: `On ne peut pas le glisser tel quel : on ouvre, on l'éloigne d'un demi-tour (${say("U2")}), on referme et on le ramène (${say("U'")}). Il a tourné : blanc vers la droite. Il reste à ouvrir, glisser, refermer.`,
+      },
+      {
+        name: "Coin coincé en bas",
+        alg: "R U R'",
+        when: "Un coin blanc est déjà en bas, devant à droite, mais mal placé ou mal tourné.",
+        why: "On ouvre, on le fait sortir en haut, on referme : il est en haut, on recommence normalement.",
       },
     ],
-    tips: ["Coin blanc en bas mais mal placé ou mal tourné : un sexy move (la formule ci-dessus, une fois) le fait remonter, puis on recommence."],
+    tips: [
+      "Lien avec le F2L (méthode rapide) : on y insère une paire coin + arête exactement comme ça. Ouvrir, glisser, refermer, c'est le geste de base du F2L.",
+      `Le sexy move, c'est ce geste répété (${["R", "U", "R'", "U'"].map(say).join(", ")}) : refait plusieurs fois, il finit aussi par placer le coin.`,
+    ],
   },
   {
     title: "2. Deuxième couronne : le Belge",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BEGINNER_STEPS } from "./beginner";
-import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, parseAnyAlg } from "./facelets";
+import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, invertAlg, parseAnyAlg } from "./facelets";
 import { CORNERS, EDGES, readOrbit } from "./pieces";
 import { EO_CASES, showsCaseState, caseState } from "./cases";
 
@@ -18,17 +18,39 @@ describe("méthode débutant", () => {
     for (const a of algs) if (a.story) expect(a.story.length, a.name).toBe(parseAnyAlg(a.alg).length);
   });
 
-  it("coins blancs : le sexy move répété 1, 3 ou 5 fois place le coin d'en haut, quel que soit son sens", () => {
-    const sexy = byName("Le sexy move, répété");
-    const rep = (k: number) => Array(k).fill(sexy).join(" ");
-    // Le coin DRF en haut (UFR) avec ses 3 orientations possibles = cube résolu après 1, 3 ou 5 sexy moves « à l'envers ».
-    const twists = [1, 3, 5].map((k) => {
-      const c = readOrbit(applyAlg(SOLVED, rep(6 - k)), CORNERS);
-      expect(c.pieces[0], `${k}`).toBe(4);
-      return c.orientation[0];
+  describe("coins blancs : ouvrir, glisser, refermer", () => {
+    // Coin DRF au-dessus de sa place (UFR) ; le blanc (D) est sur l'autocollant 9 (droite), 20 (avant) ou 8 (haut).
+    const UFR = { right: 9, front: 20, up: 8 };
+    // Croix blanche + 3 autres coins du bas (tout le bas sauf le coin DRF : 29, 26, 15).
+    const restOfBottom = [27, 28, 30, 31, 32, 33, 34, 35, 24, 25, 16, 17, 42, 43, 44, 51, 52, 53];
+    const cases: [string, number][] = [
+      ["Blanc vers la droite", UFR.right],
+      ["Blanc vers l'avant", UFR.front],
+      ["Blanc vers le haut", UFR.up],
+    ];
+
+    it.each(cases)("%s : le coin d'en haut est inséré bien orienté, croix intacte", (name, white) => {
+      const alg = byName(name);
+      const start = applyAlg(SOLVED, invertAlg(alg)); // le cas à résoudre
+      expect(start[white], "blanc du bon côté").toBe("D");
+      expect(readOrbit(start, CORNERS).pieces[0], "coin au-dessus de sa place").toBe(4);
+      expect(allSolved(start, restOfBottom), "croix et autres coins en place").toBe(true);
+      expect(applyAlg(start, alg)).toBe(SOLVED);
     });
-    expect(new Set(twists).size).toBe(3);
-    expect(applyAlg(SOLVED, rep(6))).toBe(SOLVED);
+
+    it("blanc vers le haut : la première partie le ramène blanc vers la droite", () => {
+      const start = applyAlg(SOLVED, invertAlg(byName("Blanc vers le haut")));
+      const mid = applyAlg(start, "R U2 R' U'");
+      expect(mid[UFR.right]).toBe("D");
+      expect(readOrbit(mid, CORNERS).pieces[0]).toBe(4);
+      expect(allSolved(mid, restOfBottom)).toBe(true);
+    });
+
+    it("coin coincé en bas : il sort en haut, croix intacte", () => {
+      const s = applyAlg(SOLVED, byName("Coin coincé en bas"));
+      expect(readOrbit(s, CORNERS).pieces.indexOf(4)).toBeLessThan(4); // dans la couche du haut
+      expect(allSolved(s, [28, 30, 32, 34, 25, 43, 16, 52])).toBe(true);
+    });
   });
 
   it("marguerite : F U' R remonte une arête blanche couchée", () => {

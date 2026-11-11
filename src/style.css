@@ -444,3 +444,4 @@ body.sheet-open { overflow: hidden; }
 .beginner-drawings figure { margin: 0; display: flex; flex-direction: column; align-items: center; font-size: 0.7rem; }
 .beginner-drawings figcaption { font-family: ui-monospace, monospace; font-weight: 700; }
 .beginner-tip { margin-top: 8px; }
+.beginner-why { margin: 6px 0 0; }

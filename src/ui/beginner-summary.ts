@@ -38,7 +38,14 @@ function algBlock(a: BeginnerAlg): HTMLElement {
       "div",
       { class: "beginner-alg-head" },
       a.diagram ? caseSvg(caseView(a.alg), a.diagram, 56) : null,
-      h("div", {}, h("strong", {}, a.name), h("p", { class: "muted small" }, a.when), algView(a.alg, { interactive: true, class: "beginner-formula" })),
+      h(
+        "div",
+        {},
+        h("strong", {}, a.name),
+        h("p", { class: "muted small" }, a.when),
+        algView(a.alg, { interactive: true, class: "beginner-formula" }),
+        a.why ? h("p", { class: "small beginner-why" }, a.why) : null,
+      ),
     ),
     // Chaque mouvement traduit en français, avec la ligne de l'histoire s'il y en a une.
     h(
