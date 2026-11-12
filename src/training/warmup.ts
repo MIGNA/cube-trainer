@@ -194,10 +194,13 @@ export class WarmupTracker {
     return this.finished ? this.perRep : this.pos % this.perRep;
   }
 
-  /** Le joueur s'est-il écarté de la formule ? */
+  /** Le joueur s'est-il écarté de la formule ? (pas pendant un demi-tour fait dans l'autre sens) */
   get lost(): boolean {
-    return this.offTrack.length > 0;
+    return this.offTrack.length > 0 && !this.halfTurn;
   }
+
+  /** Premier quart d'un demi-tour fait dans l'autre sens (U2 en U' U') : pas une erreur. */
+  private halfTurn = false;
 
   /**
    * Mouvements à faire pour revenir sur la formule (repère du joueur, tel qu'il tient
@@ -209,27 +212,42 @@ export class WarmupTracker {
     return [...this.offTrack].reverse().map((m) => toPlayer(invertQuarter(m), holding));
   }
 
+  /**
+   * Position atteinte sur un chemin : la plus proche vers l'avant (un R' en fin de
+   * répétition suivi du R du début de la suivante redonne un état déjà vu : il ne faut
+   * pas sauter), sinon la plus proche en arrière (mouvements défaits) ; -1 si aucune.
+   */
+  private find(path: Path, state: string): number {
+    const hi = Math.min(this.pos + LOOKAHEAD, this.expectedMoves);
+    for (let i = this.pos + 1; i <= hi; i++) if (path.states[i] === state) return i;
+    for (let i = this.pos; i >= Math.max(0, this.pos - LOOKBACK); i--) if (path.states[i] === state) return i;
+    return -1;
+  }
+
   /** À appeler après chaque quart de tour reçu : mouvement et état du cube (repère cube). */
   move(move: string, state: string, now: number): void {
     if (this.finished) return;
     this.moves++;
     this.firstMoveAt ??= now;
+    // Avancer le moins possible ; en arrière, revenir le moins possible.
     let best = -1;
     let matching: Path[] = [];
+    const better = (i: number) =>
+      best < 0 || (i > this.pos ? best <= this.pos || i < best : best <= this.pos && i > best);
     for (const path of this.paths) {
-      const hi = Math.min(this.pos + LOOKAHEAD, this.expectedMoves);
-      for (let i = hi; i >= Math.max(0, this.pos - LOOKBACK); i--) {
-        if (path.states[i] !== state) continue;
-        if (i > best) {
-          best = i;
-          matching = [];
-        }
-        if (i === best) matching.push(path);
-        break;
+      const i = this.find(path, state);
+      if (i < 0) continue;
+      if (better(i)) {
+        best = i;
+        matching = [];
       }
+      if (i === best) matching.push(path);
     }
     if (best < 0) {
       this.offTrack.push(move);
+      // Le même quart de tour encore une fois retombe sur la formule : demi-tour en cours.
+      const again = applyAlg(state, move);
+      this.halfTurn = this.offTrack.length === 1 && this.paths.some((p) => p.states.slice(this.pos + 1, this.pos + 1 + LOOKAHEAD).includes(again));
       return;
     }
     // Façon de tenir le cube : on ne garde que celles qui collent à ce qui a été fait ;
@@ -237,6 +255,7 @@ export class WarmupTracker {
     this.paths = best > 0 ? matching : this.allPaths;
     this.pos = best;
     this.offTrack = [];
+    this.halfTurn = false;
     if (this.finished) this.finishedAt = now;
   }
 }

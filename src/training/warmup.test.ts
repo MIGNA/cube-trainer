@@ -156,6 +156,25 @@ describe("échauffement", () => {
       expect(tracker.extraMoves).toBe(2);
     });
 
+    it("Sune : pas de saut à la répétition suivante sur le U2, et U2 fait en U' U' accepté", () => {
+      const ex = triggerExercises()[0];
+      expect(ex.alg).toBe("R U R' U R U2 R'");
+      // Jaune en haut : R → L, U → D (repère cube).
+      for (const half of [["D", "D"], ["D'", "D'"]]) {
+        const tracker = new WarmupTracker(ex, scrambled);
+        let state = feed(tracker, scrambled, ["L", "D", "L'", "D", "L"]);
+        expect(tracker.pos).toBe(5);
+        state = feed(tracker, state, [half[0]]);
+        expect(tracker.lost, half.join(" ")).toBe(false);
+        expect(tracker.pos).toBeLessThanOrEqual(6);
+        state = feed(tracker, state, [half[1]]);
+        expect(tracker.pos, half.join(" ")).toBe(7);
+        feed(tracker, state, ["L'"]);
+        expect(tracker.pos).toBe(8);
+        expect(tracker.done).toBe(1);
+      }
+    });
+
     it("A-perm (rotations x) : répétitions comptées une par une", () => {
       const ex = pllEx("Aa");
       const tracker = new WarmupTracker(ex, scrambled);
