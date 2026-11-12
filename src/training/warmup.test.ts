@@ -94,6 +94,16 @@ describe("échauffement", () => {
       for (const e of draw.slice(3)) expect(["T", "Ja", "Jb", "Ua", "Ub", "H"].map((id) => `${id}-perm`)).toContain(e.label);
     });
 
+    it("au plus un trigger main gauche par séance", () => {
+      let lefts = 0;
+      for (let i = 0; i < 200; i++) {
+        const n = drawWarmup([], random).filter((e) => e.left).length;
+        expect(n).toBeLessThanOrEqual(1);
+        lefts += n;
+      }
+      expect(lefts).toBeGreaterThan(0); // la main gauche sort quand même de temps en temps
+    });
+
     it("complète avec les PLL à travailler, ou triggers seuls s'il n'y a rien", () => {
       expect(drawWarmup([pll("T", "known"), pll("Y", "learning")], random).filter((e) => e.kind === "pll")).toHaveLength(2);
       expect(drawWarmup([], random).map((e) => e.kind)).toEqual(["trigger", "trigger", "trigger"]);

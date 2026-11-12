@@ -13,6 +13,8 @@ export interface WarmupExercise {
   /** Formule d'une répétition (repère joueur), AUF de fin compris si besoin. */
   alg: string;
   reps: number;
+  /** Trigger en version main gauche. */
+  left?: boolean;
 }
 
 const ALL = [...Array(54).keys()];
@@ -66,9 +68,9 @@ export function expectedStates(start: string, ex: WarmupExercise): string[] {
 export function triggerExercises(): WarmupExercise[] {
   return TRIGGERS.flatMap((t) =>
     [
-      { label: t.name, alg: t.alg },
-      { label: `${t.name} (main gauche)`, alg: mirrorAlg(t.alg) },
-    ].map(({ label, alg }) => ({ kind: "trigger" as const, label, alg, reps: cycleLength(alg)! })),
+      { label: t.name, alg: t.alg, left: false },
+      { label: `${t.name} (main gauche)`, alg: mirrorAlg(t.alg), left: true },
+    ].map(({ label, alg, left }) => ({ kind: "trigger" as const, label, alg, reps: cycleLength(alg)!, ...(left ? { left } : {}) })),
   );
 }
 
@@ -88,8 +90,19 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
   return out;
 }
 
+/** Triggers tirés au hasard, dont au plus un en main gauche. */
+function drawTriggers(count: number, random: () => number): WarmupExercise[] {
+  const out: WarmupExercise[] = [];
+  for (const ex of shuffle(triggerExercises(), random)) {
+    if (out.length === count) break;
+    if (ex.left && out.some((e) => e.left)) continue;
+    out.push(ex);
+  }
+  return out;
+}
+
 /**
- * Tirage d'une séance : 3 triggers puis jusqu'à 5 PLL (les maîtrisées d'abord, complétées
+ * Tirage d'une séance : 3 triggers (au plus un en main gauche) puis jusqu'à 5 PLL (les maîtrisées d'abord, complétées
  * par celles à travailler s'il en manque), dans un ordre au hasard.
  */
 export function drawWarmup(plls: readonly PllChoice[], random: () => number = Math.random, triggers = 3, pllCount = 5): WarmupExercise[] {
@@ -100,7 +113,7 @@ export function drawWarmup(plls: readonly PllChoice[], random: () => number = Ma
     const ex = exerciseFor(p.alg);
     return ex ? [{ kind: "pll" as const, label: `${p.id}-perm`, ...ex }] : [];
   });
-  return [...shuffle(triggerExercises(), random).slice(0, triggers), ...pllExercises];
+  return [...drawTriggers(triggers, random), ...pllExercises];
 }
 
 // Les 24 façons de tenir le cube (face du haut × face de devant), en rotations depuis
