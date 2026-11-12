@@ -445,3 +445,7 @@ body.sheet-open { overflow: hidden; }
 .beginner-drawings figcaption { font-family: ui-monospace, monospace; font-weight: 700; }
 .beginner-tip { margin-top: 8px; }
 .beginner-why { margin: 6px 0 0; }
+.beginner-intro { margin: 0 0 12px; }
+.beginner-tale h3, .beginner-detail { margin: 10px 0 4px; }
+.beginner-tale ul { margin: 0; padding-left: 18px; font-size: 0.88rem; }
+.beginner-tale p { margin: 0; font-size: 0.92rem; line-height: 1.45; font-style: italic; }

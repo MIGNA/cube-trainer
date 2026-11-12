@@ -21,11 +21,20 @@ const GESTURE: Record<string, [string, string]> = {
   B: ["le haut part à gauche", "le haut part à droite"],
 };
 
+// Rotations de tout le cube : quart de tour normal, inverse ('), demi-tour (2).
+const ROTATION: Record<string, [string, string, string]> = {
+  x: ["la face de devant passe en haut", "la face de devant passe en bas", "demi-tour vers le haut"],
+  y: ["la face de droite passe devant", "la face de gauche passe devant", "demi-tour, la face de derrière passe devant"],
+  z: ["le haut passe à droite", "le haut passe à gauche", "demi-tour, le haut passe en bas"],
+};
+
 /**
- * Description complète d'un mouvement de face (R) ou large (r = deux couches) ;
- * null pour les autres (M, x…).
+ * Description complète d'un mouvement de face (R), large (r = deux couches)
+ * ou d'une rotation du cube (y) ; null pour les tranches (M, E, S).
  */
 export function describeMove(move: string): string | null {
+  const rot = /^([xyz])(2'?|'|)$/.exec(move);
+  if (rot) return `tourner tout le cube : ${ROTATION[rot[1]][rot[2].startsWith("2") ? 2 : rot[2] === "'" ? 1 : 0]}`;
   const m = /^([URFDLBurfdlb])(2'?|'|)$/.exec(move);
   if (!m) return null;
   const [, letter, suffix] = m;

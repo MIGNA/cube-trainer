@@ -17,7 +17,12 @@ describe("describeMove", () => {
 
   it("rien pour les autres mouvements", () => {
     expect(describeMove("M")).toBeNull();
-    expect(describeMove("x")).toBeNull();
+    expect(describeMove("S")).toBeNull();
+  });
+
+  it("décrit les rotations du cube", () => {
+    expect(describeMove("y")).toBe("tourner tout le cube : la face de droite passe devant");
+    expect(describeMove("y'")).toBe("tourner tout le cube : la face de gauche passe devant");
   });
 
   it("toutes les formules débutant sont traduites", () => {

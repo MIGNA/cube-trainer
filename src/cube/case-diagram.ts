@@ -60,6 +60,27 @@ export function lastLayerView(facelets: string): LastLayerView {
   return { top, sides, arrows };
 }
 
+/**
+ * Flèches de déplacement de toutes les pièces de la dernière couche, même mal orientées :
+ * chaque pièce est reconnue à l'ensemble de ses couleurs (méthode débutant : la chaise
+ * et le fêtard déplacent des pièces tout en tournant les coins).
+ */
+function arrowsByPieces(facelets: string): [number, number][] {
+  const byLetter = new Map(POSITIONS.map((pos, i) => [facelets[i * 9 + 4], pos]));
+  const at = (i: number) => byLetter.get(facelets[i])!;
+  const arrows: [number, number][] = [];
+  for (const [cell, sticker] of Object.entries(EDGE_SIDE)) {
+    const side = [at(Number(cell)), at(sticker)].find((f) => f !== "U") as SideFace;
+    if (EDGE_CELL[side] !== Number(cell)) arrows.push([Number(cell), EDGE_CELL[side]]);
+  }
+  for (const [cell, stickers] of Object.entries(CORNER_SIDES)) {
+    const faces = [at(Number(cell)), ...stickers.map(at)];
+    const target = Number(Object.entries(CORNER_FACES).find(([, fs]) => fs.every((f) => faces.includes(f)))![0]);
+    if (target !== Number(cell)) arrows.push([Number(cell), target]);
+  }
+  return arrows;
+}
+
 /** Longueur du plus grand cycle formé par les flèches (0 si aucune). */
 function longestCycle(arrows: [number, number][]): number {
   const next = new Map(arrows);
@@ -88,4 +109,14 @@ export function caseView(alg: string): LastLayerView {
   const views = ["", "U", "U2", "U'"].map((auf) => lastLayerView(auf ? applyAlg(state, auf) : state));
   const score = (v: LastLayerView) => v.arrows.length * 10 + longestCycle(v.arrows);
   return views.reduce((best, v) => (score(v) < score(best) ? v : best));
+}
+
+/**
+ * Schéma de la méthode débutant : le cas tel qu'on tient le cube au début de l'algo
+ * (pas de choix d'angle, contrairement à caseView : la consigne dit quelle pièce est
+ * devant), avec les flèches de toutes les pièces même mal orientées.
+ */
+export function permutationView(alg: string): LastLayerView {
+  const state = applyAlg(SOLVED, invertAlg(alg));
+  return { ...lastLayerView(state), arrows: arrowsByPieces(state) };
 }

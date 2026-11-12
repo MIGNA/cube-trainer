@@ -16,6 +16,10 @@ export interface BeginnerAlg {
   when: string;
   /** Pourquoi ça marche, en une phrase. */
   why?: string;
+  /** Personnages de l'histoire : qui est qui sur le cube. */
+  characters?: string[];
+  /** L'histoire racontée d'un trait, sans mouvements. */
+  tale?: string;
   /** Histoire, une ligne par mouvement (même nombre que de mouvements). */
   story?: string[];
   /**
@@ -60,43 +64,55 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
   {
     title: "1b. Coins blancs",
     goal: "Finir la face blanche et sa couronne.",
-    hold: "Croix blanche en bas. Tourner la face du haut pour amener le coin blanc en haut, juste au-dessus de sa place (devant à droite). Puis : ouvrir, glisser, refermer.",
+    hold: "Croix blanche en bas. Tourner la face du haut pour amener le coin blanc juste au-dessus de sa place (devant à droite).",
+    text: ["Le principe : on monte une face pour aller chercher le coin, on pose le coin, et on redescend l'ensemble."],
     algs: [
       {
-        name: "Blanc vers la droite",
+        name: "Blanc devant",
         piece: [29, 26, 15],
-        alg: "R U R'",
-        when: "L'autocollant blanc du coin regarde vers la droite.",
-        why: `On ouvre : la place monte (${say("R")}). Le coin glisse dedans (${say("U")}). On referme (${say("R'")}).`,
-      },
-      {
-        name: "Blanc vers l'avant",
-        piece: [29, 26, 15],
-        alg: "F' U' F",
+        alg: "U R U' R'",
         when: "L'autocollant blanc du coin regarde vers toi.",
-        why: `Le même geste, par l'avant : on ouvre (${say("F'")}), le coin glisse dedans (${say("U'")}), on referme (${say("F")}).`,
+        why: "La face de droite va monter : on écarte d'abord le coin pour qu'elle ne l'emporte pas, puis elle remonte sa place juste à côté de lui.",
+        story: ["On décale le coin", "La face de droite monte le chercher", "On pose le coin sur sa place", "On redescend l'ensemble"],
       },
       {
-        name: "Blanc vers le haut",
+        name: "Blanc à droite",
         piece: [29, 26, 15],
-        alg: "R U2 R' U' R U R'",
-        when: "L'autocollant blanc du coin regarde vers le haut.",
-        why: `On ne peut pas le glisser tel quel : on ouvre, on l'éloigne d'un demi-tour (${say("U2")}), on referme et on le ramène (${say("U'")}). Il a tourné : blanc vers la droite. Il reste à ouvrir, glisser, refermer.`,
+        // Image : avant de tourner le cube (blanc à droite, comme on le voit).
+        pictureAlg: "R U R'",
+        alg: "y U' L' U L",
+        when: "L'autocollant blanc du coin regarde vers la droite. On tourne tout le cube pour qu'il regarde vers toi : le coin est alors au-dessus de sa place à gauche.",
+        why: "C'est le même geste que « blanc devant », fait à gauche (en miroir).",
+        story: [
+          "On tourne le cube : le blanc regarde vers toi",
+          "On décale le coin",
+          "La face de gauche monte le chercher",
+          "On pose le coin sur sa place",
+          "On redescend l'ensemble",
+        ],
+      },
+      {
+        name: "Blanc en haut",
+        piece: [29, 26, 15],
+        // Image : coin au-dessus de sa place, blanc vers le haut.
+        pictureAlg: "R U2 R' U' R U R'",
+        alg: "R U' R'",
+        when: "L'autocollant blanc regarde vers le haut : on le ramène d'abord sur le côté. Ensuite, tourner la face du haut pour remettre le coin au-dessus de sa place, et on retombe sur « blanc à droite ».",
+        why: `Coin au-dessus de sa place de droite : cette formule. Au-dessus de la place de gauche : son miroir L' U L (${["L'", "U", "L"].map(say).join(" ; ")}). Jamais l'inverse : le coin descendrait au mauvais endroit.`,
+        story: ["La face de droite monte : le coin part derrière", "On tourne le haut : le coin s'écarte", "On redescend la face : le coin reste en haut, blanc sur le côté"],
       },
       {
         name: "Coin coincé en bas",
         piece: [29, 26, 15],
-        // Exemple dessiné : coin blanc à sa place mais mal tourné.
+        // Image : un coin blanc à sa place mais mal tourné.
         pictureAlg: "U R U' R' U R U' R'",
         alg: "R U R'",
-        when: "Un coin blanc est déjà en bas, devant à droite, mais mal placé ou mal tourné.",
-        why: "On ouvre, on le fait sortir en haut, on referme : il est en haut, on recommence normalement.",
+        when: "Un coin blanc est en bas mais mal placé ou mal tourné. Si c'est un mauvais coin et qu'il reste des coins à faire : ne rien faire, il sera chassé quand on posera le bon. Sinon, le mettre en bas à droite (peu importe son sens) et le sortir.",
+        why: "La face de droite remonte le coin coincé ; on l'écarte et on redescend : il est en haut, on revient à un cas connu.",
+        story: ["La face de droite monte, avec le coin coincé", "On tourne le haut : le coin s'écarte", "On redescend la face : le coin reste en haut"],
       },
     ],
-    tips: [
-      "Lien avec le F2L (méthode rapide) : on y insère une paire coin + arête exactement comme ça. Ouvrir, glisser, refermer, c'est le geste de base du F2L.",
-      `Le sexy move, c'est ce geste répété (${["R", "U", "R'", "U'"].map(say).join(", ")}) : refait plusieurs fois, il finit aussi par placer le coin.`,
-    ],
+    tips: ["Lien avec le F2L (méthode rapide) : on y insère une paire coin + arête avec exactement ce geste. Monter, poser, redescendre, c'est le geste de base du F2L."],
   },
   {
     title: "2. Deuxième couronne : le Belge",
@@ -108,18 +124,40 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
         piece: [23, 12],
         alg: "U R U' R' U' F' U F",
         when: "L'autre couleur de l'arête est celle du centre de droite.",
+        characters: [
+          "Le Belge : l'arête en haut devant (en vif sur l'image). Il doit descendre à droite.",
+          "Ses copains : la face de droite.",
+          "La maison : en bas, là où vivent les copains.",
+          "La face : la face de devant.",
+        ],
+        tale: "Le Belge doit aller à droite… mais comme il est belge, il part à gauche. Ses copains de droite montent le chercher. Il revient vers eux, et les copains rentrent à la maison. Emporté par son élan, il continue vers la droite, et toute la face bascule ! Il se calme et revient sur ses pas ; la face se remet en place et l'emmène avec elle : le voilà chez lui.",
         story: [
           "Il part à gauche (il est belge…)",
           "Ses copains de droite montent le chercher",
-          "Il revient sur la droite",
+          "Il revient vers eux",
           "Ses copains rentrent à la maison",
-          "Emporté par son élan, il continue",
-          "Et emporte toute la face avec lui",
+          "Emporté par son élan, il continue vers la droite",
+          "Toute la face bascule",
           "Il se calme et revient sur ses pas",
-          "La face se remet en place",
+          "La face se remet en place et l'emmène chez lui",
         ],
       },
-      { name: "Le Belge (vers la gauche)", alg: "U' L' U L U F U' F'", when: "Même histoire en miroir : l'arête doit aller à gauche.", piece: [21, 41] },
+      {
+        name: "Le Belge (vers la gauche)",
+        alg: "U' L' U L U F U' F'",
+        when: "Même histoire en miroir : l'arête doit aller à gauche, ses copains sont la face de gauche.",
+        piece: [21, 41],
+        story: [
+          "Il part à droite (toujours belge…)",
+          "Ses copains de gauche montent le chercher",
+          "Il revient vers eux",
+          "Ses copains rentrent à la maison",
+          "Emporté par son élan, il continue vers la gauche",
+          "Toute la face bascule",
+          "Il se calme et revient sur ses pas",
+          "La face se remet en place et l'emmène chez lui",
+        ],
+      },
     ],
     tips: ["Arête à sa place mais retournée : la sortir avec un Belge (n'importe quelle arête à la place), puis la replacer normalement."],
   },
@@ -134,6 +172,8 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
         diagram: "edges",
         alg: "R U2 R' U' R U' R'",
         when: "Croix faite mais arêtes mal placées : une arête bien placée devant toi, les trois autres tournent dans le sens des aiguilles d'une montre.",
+        characters: ["Le Belge (encore lui !) : le coin en bas à droite, assis sur sa chaise.", "Sa chaise : la face de droite."],
+        tale: "Le Belge est assis en bas à droite. Il se lève, part très loin… et sa chaise tombe. Il revient un peu sur ses pas, redresse sa chaise, revient devant elle et se rassied.",
         story: [
           "Il se lève",
           "Part très loin",
@@ -148,24 +188,30 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
     tips: ["Point jaune seul (aucune arête) : faire une des deux formules, on retombe sur une ligne ou un L.", "Aucune arête bien placée : faire la chaise une fois depuis n'importe où, puis recommencer."],
   },
   {
-    title: "4. Placer les coins : le petit curieux",
+    title: "4. Placer les coins : le fêtard",
     goal: "Mettre chaque coin jaune à sa place, sans s'occuper de son orientation.",
     hold: "Un coin bien placé (ses couleurs = les trois centres qu'il touche) devant à droite : les trois autres tournent dans le sens des aiguilles d'une montre.",
     algs: [
       {
-        name: "Le petit curieux",
+        name: "Le fêtard",
         diagram: "corners",
         alg: "L' U R U' L U R' U'",
-        when: "Le petit curieux est le coin bien placé, devant à droite.",
+        when: "Le fêtard est le coin bien placé, devant à droite.",
+        characters: [
+          "Le Belge, qui veut faire la fête : le coin devant à droite, déjà à sa place.",
+          "Ses amis de gauche : la face de gauche.",
+          "Ses amis de droite : la face de droite.",
+        ],
+        tale: "Le Belge veut faire la fête. Ses amis de gauche montent : il va les voir. Ses amis de droite montent à leur tour : il va les voir. Ceux de gauche en ont marre et rentrent chez eux : il va leur dire au revoir. Ceux de droite rentrent aussi, et le Belge rentre chez lui. Pendant la fête, les trois autres coins ont changé de place.",
         story: [
-          "Ses copains de gauche montent",
+          "Ses amis de gauche montent",
           "Il va les voir",
-          "Ses copains de droite montent",
+          "Ses amis de droite montent",
           "Il va les voir",
-          "Ceux de gauche en ont marre et descendent",
-          "Il revient leur dire au revoir",
-          "Ceux de droite redescendent",
-          "Il revient à sa place",
+          "Ceux de gauche en ont marre et rentrent",
+          "Il va leur dire au revoir",
+          "Ceux de droite rentrent aussi",
+          "Il rentre chez lui",
         ],
       },
     ],
