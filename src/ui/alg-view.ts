@@ -11,16 +11,19 @@ export function algView(alg: string, options: { interactive?: boolean; class?: s
   return code;
 }
 
-/** Remplit (ou remplace) le contenu d'un élément avec la formule découpée. */
+/**
+ * Remplit (ou remplace) le contenu d'un élément avec la formule découpée. Chaque
+ * mouvement écrit est un <span class="mv">, dans l'ordre (pour l'allumer pendant un exercice).
+ */
 export function fillAlg(el: HTMLElement, alg: string, interactive = false): void {
+  const moves = (list: string[]) => list.flatMap((m, k) => (k > 0 ? [" ", h("span", { class: "mv" }, m)] : [h("span", { class: "mv" }, m)]));
   el.replaceChildren(
     ...findTriggers(alg).flatMap((s, i) => {
-      const text = s.moves.join(" ");
       const name = s.trigger ? s.trigger.name + (s.left ? " (main gauche)" : "") : "";
-      const part = s.trigger
-        ? h("span", { class: `trig trig-${s.trigger.family}`, title: name, "data-name": name, tabindex: interactive ? "0" : null }, text)
-        : text;
-      return i > 0 ? [" ", part] : [part];
+      const parts = s.trigger
+        ? [h("span", { class: `trig trig-${s.trigger.family}`, title: name, "data-name": name, tabindex: interactive ? "0" : null }, ...moves(s.moves))]
+        : moves(s.moves);
+      return i > 0 ? [" ", ...parts] : parts;
     }),
   );
 }

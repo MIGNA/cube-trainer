@@ -449,3 +449,21 @@ body.sheet-open { overflow: hidden; }
 .beginner-tale h3, .beginner-detail { margin: 10px 0 4px; }
 .beginner-tale ul { margin: 0; padding-left: 18px; font-size: 0.88rem; }
 .beginner-tale p { margin: 0; font-size: 0.92rem; line-height: 1.45; font-style: italic; }
+
+/* Entraînement : échauffement */
+.warmup h2 { margin: 4px 0 10px; }
+.warmup-alg { font-size: 1.15rem; line-height: 1.6; overflow-wrap: anywhere; }
+.warmup-alg code { font-size: inherit; }
+.warmup-times { font-weight: 700; color: var(--accent); }
+.warmup-reps { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 12px 0 4px; }
+.warmup-reps .rep { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); }
+.warmup-reps .rep.done { background: var(--ok); border-color: var(--ok); }
+.warmup-clock { margin: 6px 0; }
+.warmup .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.warmup-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.warmup-table th, .warmup-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+.warmup-table th { color: var(--muted); font-weight: 600; }
+.warmup-table tr.slowest td { color: var(--err); }
+.warmup-alg .mv[data-progress="done"] { color: var(--ok); }
+.warmup-alg .mv[data-progress="current"] { background: color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 4px; padding: 0 2px; }
+.warmup-alg .mv[data-progress="todo"] { color: var(--muted); }

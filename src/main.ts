@@ -6,11 +6,11 @@ import { loadSolves } from "./storage/solves";
 import { mountCubeButton } from "./ui/cube-button";
 import { mountNotationButton } from "./ui/notation-sheet";
 import { casesView } from "./ui/views/cases";
-import { placeholderView } from "./ui/views/placeholder";
 import { settingsView } from "./ui/views/settings";
 import { solveView } from "./ui/views/solve";
 import { statsView } from "./ui/views/stats";
 import { timerView } from "./ui/views/timer";
+import { trainingView } from "./ui/views/training";
 
 const routes: Route[] = [
   { path: "chrono", label: "Chrono", icon: "⏱️", view: timerView },
@@ -18,7 +18,7 @@ const routes: Route[] = [
     path: "entrainement",
     label: "Entraînement",
     icon: "🎯",
-    view: placeholderView("Entraînement", "Le programme quotidien (OLL/PLL, drills de croix, streak) arrive aux étapes 5 à 7."),
+    view: trainingView,
   },
   { path: "algos", label: "Algos", icon: "📚", view: casesView },
   { path: "stats", label: "Stats", icon: "📊", view: statsView },

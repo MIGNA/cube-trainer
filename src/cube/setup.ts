@@ -12,7 +12,7 @@
 
 import { caseView, lastLayerView, type LastLayerView } from "./case-diagram";
 import { caseKind, checkCaseAlg, type CaseDef, type CaseKind } from "./cases";
-import { FACES, OPPOSITE, SOLVED, applyAlg, formatTurn, invertAlg, isSolved, parseAlg, parseAnyAlg, type Face, type Turn } from "./facelets";
+import { FACES, OPPOSITE, SOLVED, applyAlg, formatTurn, invertAlg, isSolved, parseAlg, parseAnyAlg, type Face, type Move, type Turn } from "./facelets";
 import { CORNERS, EDGES, readOrbit, type OrbitState } from "./pieces";
 
 // --- Réécriture en tours de faces ----------------------------------------
@@ -50,19 +50,32 @@ function conjugate(face: string, rotation: string): string {
 }
 
 /**
+ * Quarts de tour élémentaires d'un mouvement (faces et rotations, dans l'ordre) :
+ * R2 → R R, R' → R' (un seul quart de tour), M → R L' x', M' → x L R'.
+ */
+function elementaryQuarters(m: Move): string[] {
+  const exp = EXPANSIONS[m.base];
+  if (m.amount === 3) return exp ? invertAlg(exp).split(" ") : [`${m.base}'`];
+  return Array.from({ length: m.amount }, () => (exp ? exp.split(" ") : [m.base])).flat();
+}
+
+/**
  * Réécrit un algo en tours de faces seulement, à une rotation du cube près
  * (les rotations sont ramenées au début puis supprimées : elles changent la façon
  * de tenir le cube, pas le cas).
  */
 export function toFaceTurns(alg: string): Turn[] {
+  return mergeTurns(faceQuarters(alg).map((m) => parseAlg(m)[0]));
+}
+
+/**
+ * Quarts de tour de faces, un par un et sans regroupement (« R2 » → « R R »), tels que
+ * les verrait un cube connecté pendant l'algo : rotations retirées, mouvements larges et
+ * tranches réécrits en tours de faces.
+ */
+export function faceQuarters(alg: string): string[] {
   // Quarts de tour élémentaires.
-  const quarters: string[] = [];
-  for (const m of parseAnyAlg(alg)) {
-    for (let k = 0; k < m.amount; k++) {
-      const exp = EXPANSIONS[m.base];
-      quarters.push(...(exp ? exp.split(" ") : [m.base]));
-    }
-  }
+  const quarters = parseAnyAlg(alg).flatMap(elementaryQuarters);
   // De droite à gauche : suffixe = Q · G (rotations Q devant, tours G derrière).
   // Ajouter un tour F devant : F·Q·G = Q·(Q⁻¹FQ)·G.
   let rotation = "";
@@ -77,7 +90,27 @@ export function toFaceTurns(alg: string): Turn[] {
       faces.unshift(inverse ? `${g}'` : g);
     }
   }
-  return mergeTurns(faces.map((m) => parseAlg(m)[0]));
+  return faces;
+}
+
+/**
+ * Quarts de tour vus par un cube connecté qu'on tient au départ comme au début de
+ * l'algo : chaque mouvement fait après une rotation est ramené dans le repère du départ
+ * (tour G = Q F Q⁻¹ si Q = rotations déjà faites). Contrairement à faceQuarters (repère
+ * de la fin), le début d'un algo donne le début de la liste : utile pour suivre en direct.
+ */
+export function physicalQuarters(alg: string): string[] {
+  let rotation = "";
+  const out: string[] = [];
+  for (const q of parseAnyAlg(alg).flatMap(elementaryQuarters)) {
+    const base = q[0];
+    if (ROTATIONS.has(base)) rotation = `${rotation} ${q}`.trim();
+    else {
+      const g = conjugate(base, rotation ? invertAlg(rotation) : "");
+      out.push(q.endsWith("'") ? `${g}'` : g);
+    }
+  }
+  return out;
 }
 
 /** Regroupe les tours d'une même face (R R → R2, R R' → rien), y compris à travers la face opposée (R L R → R2 L). */

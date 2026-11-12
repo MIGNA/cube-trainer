@@ -45,6 +45,11 @@ function mirror(move: string): string {
   return face + (suffix === "" ? "'" : suffix === "'" ? "" : suffix);
 }
 
+/** Formule miroir (main gauche ↔ main droite) : R U R' U' → L' U' L U. */
+export function mirrorAlg(alg: string): string {
+  return alg.trim().split(/\s+/).filter(Boolean).map(mirror).join(" ");
+}
+
 interface Pattern {
   trigger: Trigger;
   left: boolean;
