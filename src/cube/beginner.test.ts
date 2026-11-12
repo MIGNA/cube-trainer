@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BEGINNER_STEPS } from "./beginner";
+import { BEGINNER_STEPS, casePicture } from "./beginner";
+import { stickerIndex, visibleStickers } from "./move-diagram";
 import { CROSS_GROUPS, SOLVED, allSolved, applyAlg, invertAlg, parseAnyAlg } from "./facelets";
 import { CORNERS, EDGES, readOrbit } from "./pieces";
 import { EO_CASES, showsCaseState, caseState } from "./cases";
@@ -104,5 +105,17 @@ describe("méthode débutant", () => {
     expect(c.pieces).toEqual([...CORNERS.keys()]);
     expect(c.orientation.slice(0, 4).map((o) => o !== 0)).toEqual([true, true, false, false]);
     expect(readOrbit(s, EDGES).pieces).toEqual([...EDGES.keys()]);
+  });
+
+  it("images 3D : la pièce dont on parle est bien visible", () => {
+    const visible = new Set(visibleStickers().map(stickerIndex));
+    const withPiece = algs.filter((a) => a.piece);
+    expect(withPiece.length).toBe(6);
+    for (const a of withPiece) {
+      const p = casePicture(a)!;
+      const bright = p.emphasis.flatMap((k, i) => (k === 2 ? [i] : []));
+      expect(bright.length, a.name).toBe(a.piece!.length);
+      expect(bright.filter((i) => visible.has(i)).length, a.name).toBeGreaterThanOrEqual(2);
+    }
   });
 });

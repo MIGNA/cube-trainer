@@ -1,12 +1,14 @@
 // Dessin SVG d'un mouvement (page Notation) : cube de trois quarts, jaune en haut,
 // vert devant ; la couche qui tourne en couleur, le reste estompé, flèche du sens.
 
-import { inLayer, moveDiagram, project, visibleStickers, type Vec3 } from "../cube/move-diagram";
+import type { Emphasis } from "../cube/beginner";
+import { inLayer, moveDiagram, project, stickerIndex, visibleStickers, type Vec3 } from "../cube/move-diagram";
 import { COLORS } from "./case-svg";
 
 const NS = "http://www.w3.org/2000/svg";
 const ARROW = "#f4f6f8";
 const HALO = "#111418";
+const GRAY = "#4a525e";
 
 function el(tag: string, attrs: Record<string, string | number>): SVGElement {
   const e = document.createElementNS(NS, tag);
@@ -16,15 +18,40 @@ function el(tag: string, attrs: Record<string, string | number>): SVGElement {
 
 const points = (list: [number, number][]) => list.map(([a, b]) => `${a.toFixed(3)},${b.toFixed(3)}`).join(" ");
 
+/** Autocollant légèrement rétréci vers son centre pour laisser voir les joints. */
+function stickerPoints(corners: Vec3[]): string {
+  const c = corners.reduce<number[]>((a, p) => a.map((v, i) => v + p[i] / 4), [0, 0, 0]);
+  return points(corners.map((p) => project(p.map((v, i) => c[i] + (v - c[i]) * 0.86) as Vec3)));
+}
+
 /** Cube de trois quarts ; `lit` dit quels autocollants restent en couleur (les autres sont estompés). */
 function cube(viewBox: string, size: number, lit: (cubie: Vec3) => boolean): SVGSVGElement {
   const [, , w, hgt] = viewBox.split(" ").map(Number);
   const svg = el("svg", { viewBox, width: size, height: (size * hgt) / w }) as SVGSVGElement;
   for (const s of visibleStickers()) {
-    // Autocollant légèrement rétréci vers son centre pour laisser voir les joints.
-    const c = s.corners.reduce<number[]>((a, p) => a.map((v, i) => v + p[i] / 4), [0, 0, 0]);
-    const inset = s.corners.map((p) => project(p.map((v, i) => c[i] + (v - c[i]) * 0.86) as Vec3));
-    svg.append(el("polygon", { points: points(inset), fill: COLORS[s.face], opacity: lit(s.cubie) ? 1 : 0.22 }));
+    svg.append(el("polygon", { points: stickerPoints(s.corners), fill: COLORS[s.face], opacity: lit(s.cubie) ? 1 : 0.22 }));
+  }
+  return svg;
+}
+
+/**
+ * Cube de trois quarts dans un état donné (repère joueur) : pièce dont on parle en vif
+ * avec un liseré, ce qui est déjà fait atténué, le reste en gris.
+ */
+export function stateSvg(state: string, emphasis: Emphasis[], size = 72): SVGSVGElement {
+  const svg = el("svg", { viewBox: "-2.7 -3.1 5.4 6.2", width: size, height: (size * 6.2) / 5.4, class: "case-svg" }) as SVGSVGElement;
+  for (const s of visibleStickers()) {
+    const i = stickerIndex(s);
+    const k = emphasis[i];
+    svg.append(
+      el("polygon", {
+        points: stickerPoints(s.corners),
+        fill: k === 0 ? GRAY : COLORS[state[i] as keyof typeof COLORS],
+        opacity: k === 1 ? 0.45 : 1,
+        stroke: k === 2 ? "#fff" : "none",
+        "stroke-width": k === 2 ? 0.06 : 0,
+      }),
+    );
   }
   return svg;
 }

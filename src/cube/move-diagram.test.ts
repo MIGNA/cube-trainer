@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SOLVED, applyAlg } from "./facelets";
-import { inLayer, moveDiagram, visibleStickers, type Vec3 } from "./move-diagram";
+import { inLayer, moveDiagram, stickerIndex, visibleStickers, type Vec3 } from "./move-diagram";
 
 /** Face visible (U, F ou R) d'un point posé dessus, et indice Kociemba de l'autocollant. */
 function sticker([x, y, z]: Vec3): { face: string; index: number } {
@@ -39,5 +39,19 @@ describe("moveDiagram", () => {
     expect(moveDiagram("Rw")).toEqual(moveDiagram("r"));
     expect(moveDiagram("R2").twice).toBe(true);
     expect(() => moveDiagram("Q")).toThrow();
+  });
+});
+
+describe("stickerIndex", () => {
+  it("donne le bon autocollant du format 54 facelets", () => {
+    const all = visibleStickers();
+    expect(new Set(all.map(stickerIndex)).size).toBe(27);
+    for (const s of all) expect(SOLVED[stickerIndex(s)]).toBe(s.face);
+    // R fait monter l'avant : sur le dessus, la colonne de droite devient verte (F).
+    const r = applyAlg(SOLVED, "R");
+    for (const s of all.filter((s) => s.face === "U")) expect(r[stickerIndex(s)]).toBe(s.cubie[0] === 2 ? "F" : "U");
+    // U fait partir l'avant à gauche : la rangée du haut de F prend la couleur de R.
+    const u = applyAlg(SOLVED, "U");
+    for (const s of all.filter((s) => s.face === "F")) expect(u[stickerIndex(s)]).toBe(s.cubie[1] === 2 ? "R" : "F");
   });
 });

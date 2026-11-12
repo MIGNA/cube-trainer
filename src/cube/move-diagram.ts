@@ -86,6 +86,14 @@ export function visibleStickers(): Sticker[] {
   return out;
 }
 
+/** Numéro (format 54 facelets Kociemba) d'un autocollant visible. */
+export function stickerIndex(s: Sticker): number {
+  const [x, y, z] = s.cubie;
+  if (s.face === "U") return z * 3 + x; // rangée 0 = côté B
+  if (s.face === "F") return 18 + (2 - y) * 3 + x;
+  return 9 + (2 - y) * 3 + (2 - z); // R : colonne 0 = côté F
+}
+
 /** Projection isométrique (vue de devant, à droite, en haut) ; y vers le bas comme en SVG. */
 export function project([x, y, z]: Vec3): [number, number] {
   return [(x - z) * 0.866, (x + z) * 0.5 - y];

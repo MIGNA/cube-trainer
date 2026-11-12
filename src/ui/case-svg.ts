@@ -56,15 +56,30 @@ function arrow(a: number, b: number, both: boolean): SVGElement {
   return g;
 }
 
-export function caseSvg(view: LastLayerView, kind: CaseKind, size = 72): SVGSVGElement {
+/**
+ * Schéma de dernière couche vu de dessus. `only` (en mode "pll") ne garde en couleur,
+ * avec leurs flèches, que les arêtes ou que les coins (méthode débutant).
+ */
+export function caseSvg(view: LastLayerView, kind: CaseKind, size = 72, only?: "edges" | "corners"): SVGSVGElement {
   const svg = el("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, width: size, height: size, class: "case-svg" }) as SVGSVGElement;
+  const hidden = (corner: boolean) => (only === "edges" && corner) || (only === "corners" && !corner);
   const color = (f: Face, isSide: boolean, corner = false) =>
-    kind === "pll" ? COLORS[f] : f === "U" && !(kind === "eo" && corner) ? COLORS.U : isSide ? OFF : GRAY;
+    kind === "pll"
+      ? hidden(corner)
+        ? isSide
+          ? OFF
+          : GRAY
+        : COLORS[f]
+      : f === "U" && !(kind === "eo" && corner)
+        ? COLORS.U
+        : isSide
+          ? OFF
+          : GRAY;
 
   view.top.forEach((f, i) => {
     const corner = i % 2 === 0 && i !== 4;
     svg.append(
-      el("rect", { x: O + (i % 3) * CELL + 0.5, y: O + Math.floor(i / 3) * CELL + 0.5, width: CELL - 1, height: CELL - 1, rx: 1.2, fill: color(f, false, corner) }),
+      el("rect", { x: O + (i % 3) * CELL + 0.5, y: O + Math.floor(i / 3) * CELL + 0.5, width: CELL - 1, height: CELL - 1, rx: 1.2, fill: i === 4 ? COLORS[f] : color(f, false, corner) }),
     );
   });
 
@@ -84,7 +99,8 @@ export function caseSvg(view: LastLayerView, kind: CaseKind, size = 72): SVGSVGE
 
   if (kind === "pll") {
     const drawn = new Set<string>();
-    for (const [a, b] of view.arrows) {
+    const isCorner = (cell: number) => cell % 2 === 0 && cell !== 4;
+    for (const [a, b] of view.arrows.filter(([cell]) => !hidden(isCorner(cell)))) {
       if (drawn.has(`${b}>${a}`)) continue;
       const both = view.arrows.some(([c, d]) => c === b && d === a);
       drawn.add(`${a}>${b}`);

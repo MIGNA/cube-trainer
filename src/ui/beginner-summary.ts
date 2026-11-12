@@ -2,12 +2,12 @@
 // les étapes dans l'ordre, chaque formule avec ses triggers et son histoire.
 // Pas d'état d'apprentissage ni de set-up : simple aide-mémoire.
 
-import { BEGINNER_STEPS, type BeginnerAlg, type BeginnerStep } from "../cube/beginner";
+import { BEGINNER_STEPS, casePicture, type BeginnerAlg, type BeginnerStep } from "../cube/beginner";
 import { caseView } from "../cube/case-diagram";
 import { parseAnyAlg, formatMove } from "../cube/facelets";
 import { describeMove } from "../cube/move-names";
 import { algView } from "./alg-view";
-import { moveSvg } from "./move-svg";
+import { moveSvg, stateSvg } from "./move-svg";
 import { COLORS, caseSvg } from "./case-svg";
 import { h } from "./dom";
 
@@ -29,6 +29,16 @@ function daisySvg(): SVGSVGElement {
   return svg;
 }
 
+/** Image du cas : vue de dessus (dernière couche) ou petit cube 3D (étapes 1 et 2). */
+function picture(a: BeginnerAlg): SVGSVGElement | null {
+  const size = 64;
+  if (a.diagram === "eo") return caseSvg(caseView(a.alg), "eo", size);
+  if (a.diagram === "orient") return caseSvg(caseView(a.alg), "oll", size);
+  if (a.diagram) return caseSvg(caseView(a.alg), "pll", size, a.diagram);
+  const p = casePicture(a);
+  return p ? stateSvg(p.state, p.emphasis, size) : null;
+}
+
 function algBlock(a: BeginnerAlg): HTMLElement {
   const moves = parseAnyAlg(a.alg).map(formatMove);
   return h(
@@ -37,7 +47,7 @@ function algBlock(a: BeginnerAlg): HTMLElement {
     h(
       "div",
       { class: "beginner-alg-head" },
-      a.diagram ? caseSvg(caseView(a.alg), a.diagram, 56) : null,
+      picture(a),
       h(
         "div",
         {},

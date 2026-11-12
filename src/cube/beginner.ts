@@ -3,6 +3,7 @@
 // Les effets décrits (quelle pièce bouge, laquelle reste) sont vérifiés par beginner.test.ts.
 // Textes pour débutants : pas de notation, les gestes viennent de move-names.ts.
 
+import { SOLVED, applyAlg, invertAlg } from "./facelets";
 import { describeMove } from "./move-names";
 
 /** Geste en français d'un mouvement (« face de droite, vers le haut »). */
@@ -17,8 +18,16 @@ export interface BeginnerAlg {
   why?: string;
   /** Histoire, une ligne par mouvement (même nombre que de mouvements). */
   story?: string[];
-  /** Schéma de dernière couche à afficher (cas de croix jaune). */
-  diagram?: "eo";
+  /**
+   * Image du cas. Vue de dessus : "eo" (croix jaune), "edges"/"corners" (dernière couche,
+   * seules les arêtes / les coins en couleur, avec flèches), "orient" (jaune seulement).
+   * Sinon, avec `piece` : petit cube 3D, la pièce dont on parle en vif.
+   */
+  diagram?: "eo" | "edges" | "corners" | "orient";
+  /** Autocollants (numéros à l'état résolu) de la pièce dont on parle, pour le cube 3D. */
+  piece?: number[];
+  /** Algo dont l'état de départ est dessiné, quand ce n'est pas `alg`. */
+  pictureAlg?: string;
 }
 
 export interface BeginnerStep {
@@ -55,24 +64,30 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
     algs: [
       {
         name: "Blanc vers la droite",
+        piece: [29, 26, 15],
         alg: "R U R'",
         when: "L'autocollant blanc du coin regarde vers la droite.",
         why: `On ouvre : la place monte (${say("R")}). Le coin glisse dedans (${say("U")}). On referme (${say("R'")}).`,
       },
       {
         name: "Blanc vers l'avant",
+        piece: [29, 26, 15],
         alg: "F' U' F",
         when: "L'autocollant blanc du coin regarde vers toi.",
         why: `Le même geste, par l'avant : on ouvre (${say("F'")}), le coin glisse dedans (${say("U'")}), on referme (${say("F")}).`,
       },
       {
         name: "Blanc vers le haut",
+        piece: [29, 26, 15],
         alg: "R U2 R' U' R U R'",
         when: "L'autocollant blanc du coin regarde vers le haut.",
         why: `On ne peut pas le glisser tel quel : on ouvre, on l'éloigne d'un demi-tour (${say("U2")}), on referme et on le ramène (${say("U'")}). Il a tourné : blanc vers la droite. Il reste à ouvrir, glisser, refermer.`,
       },
       {
         name: "Coin coincé en bas",
+        piece: [29, 26, 15],
+        // Exemple dessiné : coin blanc à sa place mais mal tourné.
+        pictureAlg: "U R U' R' U R U' R'",
         alg: "R U R'",
         when: "Un coin blanc est déjà en bas, devant à droite, mais mal placé ou mal tourné.",
         why: "On ouvre, on le fait sortir en haut, on referme : il est en haut, on recommence normalement.",
@@ -90,6 +105,7 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
     algs: [
       {
         name: "Le Belge (vers la droite)",
+        piece: [23, 12],
         alg: "U R U' R' U' F' U F",
         when: "L'autre couleur de l'arête est celle du centre de droite.",
         story: [
@@ -103,7 +119,7 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
           "La face se remet en place",
         ],
       },
-      { name: "Le Belge (vers la gauche)", alg: "U' L' U L U F U' F'", when: "Même histoire en miroir : l'arête doit aller à gauche." },
+      { name: "Le Belge (vers la gauche)", alg: "U' L' U L U F U' F'", when: "Même histoire en miroir : l'arête doit aller à gauche.", piece: [21, 41] },
     ],
     tips: ["Arête à sa place mais retournée : la sortir avec un Belge (n'importe quelle arête à la place), puis la replacer normalement."],
   },
@@ -115,6 +131,7 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
       { name: "Deux arêtes voisines", alg: "f R U R' U' f'", when: "L jaune tenu comme sur le schéma (f : les deux couches de devant tournent ensemble).", diagram: "eo" },
       {
         name: "La chaise",
+        diagram: "edges",
         alg: "R U2 R' U' R U' R'",
         when: "Croix faite mais arêtes mal placées : une arête bien placée devant toi, les trois autres tournent dans le sens des aiguilles d'une montre.",
         story: [
@@ -137,6 +154,7 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
     algs: [
       {
         name: "Le petit curieux",
+        diagram: "corners",
         alg: "L' U R U' L U R' U'",
         when: "Le petit curieux est le coin bien placé, devant à droite.",
         story: [
@@ -160,9 +178,32 @@ export const BEGINNER_STEPS: BeginnerStep[] = [
     algs: [
       {
         name: "Chaise main droite + main gauche",
+        diagram: "orient",
         alg: "R U2 R' U' R U' R' L' U2 L U L' U L",
         when: "La chaise jouée à droite, puis la même en miroir à gauche (le haut tourne d'abord vers la droite, puis vers la gauche).",
       },
     ],
   },
 ];
+
+// Première couche (en bas) : face D + rangée du bas de F, R, L, B.
+export const FIRST_LAYER = [27, 28, 29, 30, 31, 32, 33, 34, 35, 24, 25, 26, 15, 16, 17, 42, 43, 44, 51, 52, 53];
+
+/** Importance d'un autocollant sur l'image : 2 = pièce dont on parle, 1 = déjà fait, 0 = sans importance. */
+export type Emphasis = 0 | 1 | 2;
+
+/**
+ * Cube 3D d'un cas : état de départ (résolu + algo inversé) et, pour chaque position,
+ * l'importance de l'autocollant qui s'y trouve (suivi des autocollants par numéro).
+ */
+export function casePicture(a: BeginnerAlg): { state: string; emphasis: Emphasis[] } | null {
+  if (!a.piece) return null;
+  const piece = a.piece;
+  const setup = invertAlg(a.pictureAlg ?? a.alg);
+  const label = Array.from({ length: 54 }, (_, i) => String.fromCharCode(48 + i)).join("");
+  const origin = [...applyAlg(label, setup)].map((ch) => ch.charCodeAt(0) - 48);
+  return {
+    state: applyAlg(SOLVED, setup),
+    emphasis: origin.map((o): Emphasis => (piece.includes(o) ? 2 : FIRST_LAYER.includes(o) ? 1 : 0)),
+  };
+}
