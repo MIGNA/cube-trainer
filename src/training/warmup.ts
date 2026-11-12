@@ -194,22 +194,27 @@ export class WarmupTracker {
     return this.finished ? this.perRep : this.pos % this.perRep;
   }
 
-  /** Le joueur s'est-il écarté de la formule ? (pas pendant un demi-tour fait dans l'autre sens) */
+  /** Le joueur s'est-il écarté de la formule ? (pas quand il est à un quart de tour de la suite) */
   get lost(): boolean {
-    return this.offTrack.length > 0 && !this.halfTurn;
+    return this.offTrack.length > 0 && !this.pending;
   }
 
-  /** Premier quart d'un demi-tour fait dans l'autre sens (U2 en U' U') : pas une erreur. */
-  private halfTurn = false;
+  /**
+   * Un seul mouvement hors formule, mais un quart de tour de plus retombe sur la suite :
+   * tranche M commencée par l'autre face, U2 fait en U' U'… Ce n'est pas une erreur.
+   */
+  private pending = false;
 
   /**
    * Mouvements à faire pour revenir sur la formule (repère du joueur, tel qu'il tient
-   * le cube) ; null si l'écart est trop grand (mieux vaut recommencer l'exercice).
+   * le cube) ; null si on ne peut pas le dire sûrement (façon de tenir le cube pas encore
+   * certaine, ou écart trop grand).
    */
   corrections(): string[] | null {
     if (this.offTrack.length > 6) return null;
-    const holding = this.paths[0].holding;
-    return [...this.offTrack].reverse().map((m) => toPlayer(invertQuarter(m), holding));
+    const undo = [...this.offTrack].reverse().map(invertQuarter);
+    const options = new Set(this.paths.map((p) => undo.map((m) => toPlayer(m, p.holding)).join(" ")));
+    return options.size === 1 ? undo.map((m) => toPlayer(m, this.paths[0].holding)) : null;
   }
 
   /**
@@ -245,9 +250,9 @@ export class WarmupTracker {
     }
     if (best < 0) {
       this.offTrack.push(move);
-      // Le même quart de tour encore une fois retombe sur la formule : demi-tour en cours.
-      const again = applyAlg(state, move);
-      this.halfTurn = this.offTrack.length === 1 && this.paths.some((p) => p.states.slice(this.pos + 1, this.pos + 1 + LOOKAHEAD).includes(again));
+      // À un quart de tour de la suite de la formule ? (tranche, demi-tour dans l'autre sens)
+      const ahead = new Set(this.paths.flatMap((p) => p.states.slice(this.pos + 1, this.pos + 1 + LOOKAHEAD)));
+      this.pending = this.offTrack.length === 1 && QUARTERS.some((q) => ahead.has(applyAlg(state, q)));
       return;
     }
     // Façon de tenir le cube : on ne garde que celles qui collent à ce qui a été fait ;
@@ -255,7 +260,7 @@ export class WarmupTracker {
     this.paths = best > 0 ? matching : this.allPaths;
     this.pos = best;
     this.offTrack = [];
-    this.halfTurn = false;
+    this.pending = false;
     if (this.finished) this.finishedAt = now;
   }
 }

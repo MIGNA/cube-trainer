@@ -141,7 +141,7 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], onQuit:
       moveProgress(weights, tracker.posInRep).forEach((st, i) => moveEls[i]?.setAttribute("data-progress", st));
       const fixes = tracker.lost ? tracker.corrections() : [];
       fix.hidden = !tracker.lost;
-      fix.textContent = fixes === null ? "⚠ Trop d'écarts : touche « Recommencer l'exercice »." : `⚠ Défais : ${fixes.join(" ")}`;
+      fix.textContent = fixes === null ? "⚠ Défais tes derniers mouvements (ou « Recommencer l'exercice »)." : `⚠ Défais : ${fixes.join(" ")}`;
       mainBtn.hidden = true;
       restartBtn.hidden = false;
     } else {

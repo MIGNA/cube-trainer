@@ -124,8 +124,8 @@ describe("échauffement", () => {
       expect(tracker.extraMoves).toBe(0);
     });
 
-    it("tranche M : les deux faces peuvent arriver dans n'importe quel ordre", () => {
-      const ex = pllEx("H");
+    it.each(["H", "Ua", "Ub", "Z"])("tranche M (%s) : les deux faces dans n'importe quel ordre, jamais « perdu »", (id) => {
+      const ex = pllEx(id);
       const moves = cubeMoves(ex);
       // Inverse l'ordre de chaque paire de faces opposées consécutives (R L' → L' R).
       const opposite: Record<string, string> = { R: "L", L: "R", U: "D", D: "U", F: "B", B: "F" };
@@ -134,7 +134,12 @@ describe("échauffement", () => {
         if (opposite[swapped[i][0]] === swapped[i + 1][0]) [swapped[i], swapped[i + 1]] = [swapped[i + 1], swapped[i]];
       }
       expect(swapped).not.toEqual(moves);
-      const tracker = play(ex, scrambled, [], swapped);
+      const tracker = new WarmupTracker(ex, scrambled);
+      let state = scrambled;
+      for (const m of swapped) {
+        state = feed(tracker, state, [m]);
+        expect(tracker.lost, `${id} après ${m}`).toBe(false);
+      }
       expect(tracker.finished).toBe(true);
       expect(tracker.extraMoves).toBe(0);
     });
