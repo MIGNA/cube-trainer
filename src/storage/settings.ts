@@ -1,3 +1,4 @@
+import type { Face } from "../cube/facelets";
 import { getDb } from "./db";
 
 /** État d'apprentissage d'un cas OLL/PLL (absent = non appris). */
@@ -13,6 +14,8 @@ export interface Settings {
   caseStatus: Record<string, CaseStatus>;
   /** Algos choisis par cas (le premier est celui entraîné). Absent = algo standard. */
   caseAlgs: Record<string, string[]>;
+  /** Tenue du cube pour l'entraînement : faces (repère joueur) dont la couleur est en haut / devant. */
+  warmupHolding: { up: Face; front: Face };
 }
 
 const DEFAULTS: Settings = {
@@ -21,6 +24,7 @@ const DEFAULTS: Settings = {
   crossColor: "white",
   caseStatus: {},
   caseAlgs: {},
+  warmupHolding: { up: "U", front: "F" },
 };
 
 export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K]> {

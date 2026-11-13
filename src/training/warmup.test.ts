@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { SOLVED, applyAlg, applyMove } from "../cube/facelets";
 import { PLL_CASES } from "../cube/cases";
 import { suggestedAlgs } from "../cube/case-algs";
-import { switchFrame } from "../cube/setup";
-import { WarmupTracker, cubeMoves, drawWarmup, exerciseFor, expectedStates, moveProgress, moveWeights, triggerExercises, type PllChoice, type WarmupExercise } from "./warmup";
+import { physicalQuarters, switchFrame } from "../cube/setup";
+import { DEFAULT_HOLDING, WarmupTracker, cubeMoves, drawWarmup, exerciseFor, frontChoices, holdingRotation, expectedStates, moveProgress, moveWeights, triggerExercises, type PllChoice, type WarmupExercise } from "./warmup";
 
 /** Rejoue un exercice sur un « cube connecté » et renvoie le suivi. */
 function play(ex: WarmupExercise, start: string, extra: string[] = [], moves = cubeMoves(ex)): WarmupTracker {
@@ -114,14 +114,40 @@ describe("échauffement", () => {
     const sexy = (): WarmupExercise => triggerExercises()[4];
     const pllEx = (id: string): WarmupExercise => ({ kind: "pll", label: id, ...exerciseFor(PLL_CASES.find((c) => c.id === id)!.alg)! });
 
-    it("on peut tenir le cube comme on veut (ici blanc en haut, Sune gauche)", () => {
+    it("tenue choisie : rotation depuis jaune en haut, vert devant", () => {
+      expect(holdingRotation(DEFAULT_HOLDING)).toBe("");
+      expect(holdingRotation({ up: "U", front: "R" })).toBe("y");
+      expect(holdingRotation({ up: "F", front: "D" })).toBe("x");
+      expect(frontChoices("D")).toEqual(["F", "R", "B", "L"]);
+      for (const up of ["U", "R", "F", "D", "L", "B"] as const) for (const front of frontChoices(up)) expect(() => holdingRotation({ up, front })).not.toThrow();
+    });
+
+    it("la tenue est imposée : blanc en haut (vert devant), le cube voit les lettres telles quelles", () => {
       const ex = triggerExercises()[1];
       expect(ex.label).toBe("Sune (main gauche)");
-      // Blanc en haut : le cube voit les lettres de la formule telles quelles.
       const literal = cubeMoves(ex).map(switchFrame);
-      const tracker = play(ex, scrambled, [], literal);
+      // Blanc en haut, vert devant = repère du cube GAN.
+      const tracker = new WarmupTracker(ex, scrambled, { up: "D", front: "F" });
+      feed(tracker, scrambled, literal);
       expect(tracker.finished).toBe(true);
       expect(tracker.extraMoves).toBe(0);
+      // Avec la tenue par défaut (jaune en haut), les mêmes mouvements sont des écarts.
+      const wrong = new WarmupTracker(ex, scrambled);
+      feed(wrong, scrambled, literal.slice(0, 3));
+      expect(wrong.lost).toBe(true);
+      expect(wrong.corrections()).not.toBeNull();
+    });
+
+    it("tenue jaune en haut, rouge devant : formule suivie, corrections dans le repère du joueur", () => {
+      const ex = sexy();
+      const holding = { up: "U", front: "L" } as const;
+      const moves = physicalQuarters(`${holdingRotation(holding)} ${ex.alg} ${ex.alg}`).map(switchFrame);
+      const tracker = new WarmupTracker(ex, SOLVED, holding);
+      let state = feed(tracker, SOLVED, moves.slice(0, 2));
+      expect(tracker.pos).toBe(2);
+      const fCube = switchFrame(physicalQuarters(`${holdingRotation(holding)} F`)[0]);
+      state = feed(tracker, state, [fCube]);
+      expect(tracker.corrections()).toEqual(["F'"]);
     });
 
     it.each(["H", "Ua", "Ub", "Z"])("tranche M (%s) : les deux faces dans n'importe quel ordre, jamais « perdu »", (id) => {
@@ -142,6 +168,56 @@ describe("échauffement", () => {
       }
       expect(tracker.finished).toBe(true);
       expect(tracker.extraMoves).toBe(0);
+    });
+
+    it("faces opposées (M2, M', U2…) dans n'importe quel ordre et sens, sur toutes les PLL", () => {
+      const axis: Record<string, number> = { U: 0, D: 0, R: 1, L: 1, F: 2, B: 2 };
+      let seed = 7;
+      const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (const c of PLL_CASES) {
+        const ex = pllEx(c.id);
+        const blocks: string[][] = [];
+        const perRep = cubeMoves(ex).length / ex.reps;
+        cubeMoves(ex).forEach((m, i) => {
+          const last = blocks.at(-1);
+          if (last && i % perRep !== 0 && axis[last[0][0]] === axis[m[0]]) last.push(m);
+          else blocks.push([m]);
+        });
+        for (let trial = 0; trial < 20; trial++) {
+          // Chaque face du bloc : ses quarts de tour (demi-tour dans un sens au hasard), puis ordre mélangé.
+          const seq = blocks.flatMap((b) => {
+            const qs = [...new Set(b.map((m) => m[0]))].flatMap((f) => {
+              const own = b.filter((m) => m[0] === f);
+              if (own.length % 2 || own.some((m, i) => m !== own[i ^ 1])) return own; // pas que des demi-tours
+              // Demi-tours : chacun dans un sens au hasard.
+              return Array.from({ length: own.length / 2 }, () => (rnd() < 0.5 ? [f, f] : [`${f}'`, `${f}'`])).flat();
+            });
+            for (let i = qs.length - 1; i > 0; i--) {
+              const j = Math.floor(rnd() * (i + 1));
+              [qs[i], qs[j]] = [qs[j], qs[i]];
+            }
+            return qs;
+          });
+          const tracker = new WarmupTracker(ex, scrambled);
+          let state = scrambled;
+          for (const m of seq) {
+            state = feed(tracker, state, [m]);
+            expect(tracker.lost, `${c.id} : ${seq.join(" ")}`).toBe(false);
+          }
+          expect(tracker.finished, `${c.id} : ${seq.join(" ")}`).toBe(true);
+        }
+      }
+    });
+
+    it("Z-perm : M2 fait en deux quarts du même côté d'abord", () => {
+      const ex = pllEx("Z");
+      const tracker = new WarmupTracker(ex, scrambled);
+      // M' (R L'), U (devenu F), puis M2 en L L R' R' au lieu de L R' L R'.
+      let state = feed(tracker, scrambled, ["R", "L'", "F", "L", "L"]);
+      expect(tracker.lost).toBe(false);
+      state = feed(tracker, state, ["R'", "R'"]);
+      expect(tracker.pos).toBe(7);
+      expect(tracker.lost).toBe(false);
     });
 
     it("écart : on dit quoi défaire, puis le suivi reprend", () => {

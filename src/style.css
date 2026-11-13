@@ -467,3 +467,10 @@ body.sheet-open { overflow: hidden; }
 .warmup-alg .mv[data-progress="done"] { color: var(--ok); }
 .warmup-alg .mv[data-progress="current"] { background: color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 4px; padding: 0 2px; }
 .warmup-alg .mv[data-progress="todo"] { color: var(--muted); }
+.color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+.holding p { margin: 10px 0 6px; }
+.holding-picker { display: grid; gap: 8px; margin-bottom: 12px; }
+.holding-row { display: flex; align-items: center; gap: 8px; }
+.holding-row > span { width: 4.5em; flex: none; }
+.color-pick { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 8px; border: 2px solid transparent; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+.color-pick.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }

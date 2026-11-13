@@ -3,7 +3,7 @@
 // (sexy move ×6, T-perm ×2…) : pas besoin de mélanger, et le cube vérifie tout seul.
 // Logique pure (tirage, répétitions, suivi) ; l'affichage est dans ui/views/training.ts.
 
-import { SOLVED, allSolved, applyAlg } from "../cube/facelets";
+import { OPPOSITE, SOLVED, allSolved, applyAlg, type Face } from "../cube/facelets";
 import { physicalQuarters, switchFrame } from "../cube/setup";
 import { TRIGGERS, mirrorAlg } from "../cube/triggers";
 
@@ -120,16 +120,35 @@ export function drawWarmup(plls: readonly PllChoice[], random: () => number = Ma
 // le repère joueur (jaune en haut, vert devant).
 const HOLDINGS = ["", "x", "x2", "x'", "z", "z'"].flatMap((a) => ["", "y", "y2", "y'"].map((b) => `${a} ${b}`.trim()));
 
-const QUARTERS = ["U", "U'", "R", "R'", "F", "F'", "D", "D'", "L", "L'", "B", "B'"];
-
-/** Suite attendue pour une façon de tenir le cube : mouvements et états (repère cube). */
-interface Path {
-  holding: string;
-  moves: string[];
-  states: string[];
+/**
+ * Façon de tenir le cube, choisie par le joueur : couleur du haut et de devant, données
+ * par la face qui porte cette couleur dans le repère joueur (U jaune, F vert, R orange…).
+ */
+export interface Holding {
+  up: Face;
+  front: Face;
 }
 
-/** Écart toléré : la tranche M arrive en deux faces dans un ordre quelconque, etc. */
+export const DEFAULT_HOLDING: Holding = { up: "U", front: "F" };
+
+/** Couleurs possibles devant quand on a choisi celle du haut (les 4 faces voisines). */
+export function frontChoices(up: Face): Face[] {
+  return (["F", "R", "B", "L", "U", "D"] as Face[]).filter((f) => f !== up && f !== OPPOSITE[up]);
+}
+
+/** Rotation (depuis jaune en haut, vert devant) qui donne cette tenue. */
+export function holdingRotation({ up, front }: Holding): string {
+  const r = HOLDINGS.find((rot) => {
+    const s = applyAlg(SOLVED, rot);
+    return s[4] === up && s[22] === front; // centres U et F après la rotation
+  });
+  if (r === undefined) throw new Error(`Tenue impossible : ${up} en haut, ${front} devant`);
+  return r;
+}
+
+const QUARTERS = ["U", "U'", "R", "R'", "F", "F'", "D", "D'", "L", "L'", "B", "B'"];
+
+/** Écart toléré : un U2 fait en U' U', etc. */
 const LOOKAHEAD = 3;
 /** Retour en arrière toléré (mouvements défaits). */
 const LOOKBACK = 8;
@@ -137,15 +156,18 @@ const LOOKBACK = 8;
 /**
  * Suivi d'un exercice sur le cube connecté, mouvement par mouvement, d'après l'état réel
  * du cube : position dans la formule, répétitions faites, écart éventuel (mouvements à
- * défaire). La façon de tenir le cube est libre : elle est reconnue dès les premiers
- * mouvements puis gardée.
+ * défaire). La façon de tenir le cube est imposée (réglage du joueur) : quand elle était
+ * devinée, plusieurs tenues collaient aux premiers mouvements et le suivi se trompait.
  */
 export class WarmupTracker {
   readonly expectedMoves: number;
   /** Quarts de tour par répétition. */
   readonly perRep: number;
-  private readonly allPaths: Path[];
-  private paths: Path[];
+  /** Rotation qui donne la tenue du joueur (pour lui traduire les corrections). */
+  private readonly rotation: string;
+  /** États attendus (repère cube) : index k = après k quarts de tour. */
+  private readonly states: string[];
+  private readonly blocks: AxisBlock[];
   /** Quarts de tour de la formule déjà faits (sur toutes les répétitions). */
   pos = 0;
   /** Quarts de tour reçus. */
@@ -158,21 +180,15 @@ export class WarmupTracker {
   constructor(
     readonly exercise: WarmupExercise,
     start: string,
+    holding: Holding = DEFAULT_HOLDING,
   ) {
-    const seen = new Set<string>();
-    const all = repeat(exercise.alg, exercise.reps);
-    this.allPaths = HOLDINGS.flatMap((holding) => {
-      const moves = physicalQuarters(`${holding} ${all}`).map(switchFrame);
-      const key = moves.join(" ");
-      if (seen.has(key)) return [];
-      seen.add(key);
-      const states = [start];
-      for (const m of moves) states.push(applyAlg(states[states.length - 1], m));
-      return [{ holding, moves, states }];
-    });
-    this.paths = this.allPaths;
-    this.expectedMoves = this.paths[0].moves.length;
-    this.perRep = this.expectedMoves / exercise.reps;
+    this.rotation = holdingRotation(holding);
+    const moves = physicalQuarters(`${this.rotation} ${repeat(exercise.alg, exercise.reps)}`).map(switchFrame);
+    this.states = [start];
+    for (const m of moves) this.states.push(applyAlg(this.states[this.states.length - 1], m));
+    this.expectedMoves = moves.length;
+    this.perRep = moves.length / exercise.reps;
+    this.blocks = axisBlocks(moves, this.states, this.perRep);
   }
 
   /** Répétitions terminées. */
@@ -201,31 +217,31 @@ export class WarmupTracker {
 
   /**
    * Un seul mouvement hors formule, mais un quart de tour de plus retombe sur la suite :
-   * tranche M commencée par l'autre face, U2 fait en U' U'… Ce n'est pas une erreur.
+   * U2 fait dans l'autre sens… Ce n'est pas une erreur.
    */
   private pending = false;
 
   /**
-   * Mouvements à faire pour revenir sur la formule (repère du joueur, tel qu'il tient
-   * le cube) ; null si on ne peut pas le dire sûrement (façon de tenir le cube pas encore
-   * certaine, ou écart trop grand).
+   * Mouvements à faire pour revenir sur la formule (tels que le joueur tient le cube) ;
+   * null si l'écart est trop grand.
    */
   corrections(): string[] | null {
     if (this.offTrack.length > 6) return null;
-    const undo = [...this.offTrack].reverse().map(invertQuarter);
-    const options = new Set(this.paths.map((p) => undo.map((m) => toPlayer(m, p.holding)).join(" ")));
-    return options.size === 1 ? undo.map((m) => toPlayer(m, this.paths[0].holding)) : null;
+    return [...this.offTrack].reverse().map((m) => toPlayer(invertQuarter(m), this.rotation));
   }
 
   /**
-   * Position atteinte sur un chemin : la plus proche vers l'avant (un R' en fin de
-   * répétition suivi du R du début de la suivante redonne un état déjà vu : il ne faut
-   * pas sauter), sinon la plus proche en arrière (mouvements défaits) ; -1 si aucune.
+   * Position atteinte : la plus proche vers l'avant (un R' en fin de répétition suivi du
+   * R du début de la suivante redonne un état déjà vu : il ne faut pas sauter), sinon
+   * dans le bloc de faces opposées en cours (M2 = droite + gauche dans n'importe quel ordre
+   * et sens), sinon la plus proche en arrière (mouvements défaits) ; -1 si aucune.
    */
-  private find(path: Path, state: string): number {
+  private find(state: string): number {
     const hi = Math.min(this.pos + LOOKAHEAD, this.expectedMoves);
-    for (let i = this.pos + 1; i <= hi; i++) if (path.states[i] === state) return i;
-    for (let i = this.pos; i >= Math.max(0, this.pos - LOOKBACK); i--) if (path.states[i] === state) return i;
+    for (let i = this.pos + 1; i <= hi; i++) if (this.states[i] === state) return i;
+    const inBlock = this.blocks.find((b) => b.start <= this.pos && this.pos < b.end)?.states.get(state);
+    if (inBlock !== undefined) return inBlock;
+    for (let i = this.pos; i >= Math.max(0, this.pos - LOOKBACK); i--) if (this.states[i] === state) return i;
     return -1;
   }
 
@@ -234,35 +250,66 @@ export class WarmupTracker {
     if (this.finished) return;
     this.moves++;
     this.firstMoveAt ??= now;
-    // Avancer le moins possible ; en arrière, revenir le moins possible.
-    let best = -1;
-    let matching: Path[] = [];
-    const better = (i: number) =>
-      best < 0 || (i > this.pos ? best <= this.pos || i < best : best <= this.pos && i > best);
-    for (const path of this.paths) {
-      const i = this.find(path, state);
-      if (i < 0) continue;
-      if (better(i)) {
-        best = i;
-        matching = [];
-      }
-      if (i === best) matching.push(path);
-    }
-    if (best < 0) {
+    const found = this.find(state);
+    if (found < 0) {
       this.offTrack.push(move);
-      // À un quart de tour de la suite de la formule ? (tranche, demi-tour dans l'autre sens)
-      const ahead = new Set(this.paths.flatMap((p) => p.states.slice(this.pos + 1, this.pos + 1 + LOOKAHEAD)));
+      // À un quart de tour de la suite de la formule ? (demi-tour dans l'autre sens…)
+      const ahead = new Set(this.states.slice(this.pos + 1, this.pos + 1 + LOOKAHEAD));
       this.pending = this.offTrack.length === 1 && QUARTERS.some((q) => ahead.has(applyAlg(state, q)));
       return;
     }
-    // Façon de tenir le cube : on ne garde que celles qui collent à ce qui a été fait ;
-    // revenu au point de départ, toutes redeviennent possibles.
-    this.paths = best > 0 ? matching : this.allPaths;
-    this.pos = best;
+    this.pos = found;
     this.offTrack = [];
     this.pending = false;
     if (this.finished) this.finishedAt = now;
   }
+}
+
+const AXIS: Record<string, number> = { U: 0, D: 0, R: 1, L: 1, F: 2, B: 2 };
+
+/**
+ * Suite de quarts de tour sur un même axe (faces opposées : elles commutent). Les états
+ * intermédiaires possibles, quel que soit l'ordre et le sens des demi-tours, avec la
+ * position (quarts de tour faits) qu'ils représentent. Un bloc ne déborde pas sur la
+ * répétition suivante.
+ */
+interface AxisBlock {
+  start: number;
+  end: number;
+  states: Map<string, number>;
+}
+
+function axisBlocks(moves: readonly string[], states: readonly string[], perRep: number): AxisBlock[] {
+  const blocks: AxisBlock[] = [];
+  let start = 0;
+  for (let i = 1; i <= moves.length; i++) {
+    // Coupé à chaque répétition : M2 en fin de H-perm puis M2 au début de la suivante.
+    if (i < moves.length && i % perRep !== 0 && AXIS[moves[i][0]] === AXIS[moves[start][0]]) continue;
+    const faces = [...new Set(moves.slice(start, i).map((m) => m[0]))];
+    // Pour chaque face : quarts de tour prévus (nombre) et rotation nette (mod 4).
+    const plan = faces.map((f) => {
+      const own = moves.slice(start, i).filter((m) => m[0] === f);
+      return { f, count: own.length, net: own.reduce((n, m) => n + (m.endsWith("'") ? 3 : 1), 0) % 4 };
+    });
+    const map = new Map<string, number>();
+    const combos = (k: number, alg: string, done: number): void => {
+      if (k === plan.length) {
+        const s = applyAlg(states[start], alg);
+        if (!map.has(s)) map.set(s, start + done);
+        return;
+      }
+      const { f, count, net } = plan[k];
+      for (let a = 0; a < 4; a++) {
+        const dist = Math.min((net - a + 4) % 4, (a - net + 4) % 4);
+        if (dist > count) continue; // trop loin : c'est une erreur, pas une variante
+        combos(k + 1, `${alg} ${Array(a).fill(f).join(" ")}`, done + Math.max(0, count - dist));
+      }
+    };
+    combos(0, "", 0);
+    blocks.push({ start, end: i, states: map });
+    start = i;
+  }
+  return blocks;
 }
 
 const invertQuarter = (m: string) => (m.endsWith("'") ? m.slice(0, -1) : `${m}'`);
