@@ -474,3 +474,4 @@ body.sheet-open { overflow: hidden; }
 .holding-row > span { width: 4.5em; flex: none; }
 .color-pick { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 8px; border: 2px solid transparent; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
 .color-pick.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+.warmup-extra code { color: var(--muted); font-style: italic; }

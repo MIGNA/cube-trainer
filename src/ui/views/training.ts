@@ -20,6 +20,7 @@ import {
   frontChoices,
   moveProgress,
   moveWeights,
+  repetitionAlg,
   type Holding,
   type PllChoice,
   type WarmupExercise,
@@ -189,9 +190,11 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
     progress.textContent = `Exercice ${index + 1} / ${exercises.length} · ${ex.kind === "trigger" ? "trigger" : "PLL"}`;
     title.textContent = ex.label;
     const view = algView(ex.alg, { interactive: true });
-    formula.replaceChildren(view, h("span", { class: "warmup-times" }, ` ×${ex.reps}`));
-    moveEls = [...view.querySelectorAll<HTMLElement>(".mv")];
-    weights = moveWeights(ex.alg);
+    // Retour à la tenue de départ (y'…) ou AUF : à part, en gris.
+    const extra = ex.extra ? h("span", { class: "warmup-extra", title: "Pour revenir à la tenue de départ" }, " ", algView(ex.extra)) : null;
+    formula.replaceChildren(view, extra ?? "", h("span", { class: "warmup-times" }, ` ×${ex.reps}`));
+    moveEls = [...formula.querySelectorAll<HTMLElement>(".mv")];
+    weights = moveWeights(repetitionAlg(ex));
     clock.textContent = formatTime(0);
     ticker = window.setInterval(tick, 100);
     render();
@@ -245,7 +248,7 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
     clearInterval(ticker);
     results.push({
       label: ex.label,
-      alg: ex.alg,
+      alg: repetitionAlg(ex),
       reps: ex.reps,
       timeMs: Math.round(elapsed()),
       connected: tracker !== null,

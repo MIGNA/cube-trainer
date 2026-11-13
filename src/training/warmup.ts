@@ -10,8 +10,14 @@ import { TRIGGERS, mirrorAlg } from "../cube/triggers";
 export interface WarmupExercise {
   kind: "trigger" | "pll";
   label: string;
-  /** Formule d'une répétition (repère joueur), AUF de fin compris si besoin. */
+  /** Formule d'une répétition (repère joueur), telle que dans les Algos. */
   alg: string;
+  /**
+   * Ajouté en fin de répétition (affiché à part) : rotation pour reprendre le cube dans
+   * la tenue de départ (V-perm avec y → y'), et AUF si sans lui le cube ne revient pas
+   * au départ en 6 répétitions.
+   */
+  extra?: string;
   reps: number;
   /** Trigger en version main gauche. */
   left?: boolean;
@@ -25,6 +31,9 @@ const solvedState = (s: string) => allSolved(s, ALL);
 
 const repeat = (alg: string, n: number) => Array(n).fill(alg).join(" ");
 
+/** Formule complète d'une répétition (avec le retour à la tenue de départ / l'AUF). */
+export const repetitionAlg = (ex: { alg: string; extra?: string }) => (ex.extra ? `${ex.alg} ${ex.extra}` : ex.alg);
+
 /** Nombre de répétitions qui ramènent le cube au départ (null si plus de 6). */
 export function cycleLength(alg: string): number | null {
   let s = SOLVED;
@@ -35,17 +44,21 @@ export function cycleLength(alg: string): number | null {
   return null;
 }
 
+/** Centres, pour savoir si une formule laisse le cube tourné (rotation, mouvement large). */
+const centers = (state: string) => [4, 13, 22, 31, 40, 49].map((i) => state[i]).join("");
+
 /**
- * Formule et nombre de répétitions d'un exercice. Si l'algo laisse la couche du haut
- * décalée (cycle trop long, V-perm ×12…), on ajoute un AUF à la fin : on garde la
- * version la plus courte en répétitions, sans AUF à égalité.
+ * Exercice pour une formule : le joueur reprend le cube dans sa tenue de départ à la fin
+ * de chaque répétition (rotation de retour, sans mouvement). On garde la formule telle
+ * quelle ; un AUF n'est ajouté que si le cube ne revient pas au départ en 6 répétitions.
  */
-export function exerciseFor(alg: string): { alg: string; reps: number } | null {
-  let best: { alg: string; reps: number } | null = null;
-  for (const auf of ["", "U", "U2", "U'"]) {
-    const full = auf ? `${alg} ${auf}` : alg;
-    const reps = cycleLength(full);
-    if (reps !== null && (!best || reps < best.reps)) best = { alg: full, reps };
+export function exerciseFor(alg: string): { alg: string; reps: number; extra?: string } | null {
+  const back = HOLDINGS.find((r) => centers(applyAlg(SOLVED, `${alg} ${r}`)) === centers(SOLVED)) ?? "";
+  let best: { alg: string; reps: number; extra?: string } | null = null;
+  for (const auf of ["", "U", "U'", "U2"]) {
+    const extra = [back, auf].filter(Boolean).join(" ");
+    const reps = cycleLength(extra ? `${alg} ${extra}` : alg);
+    if (reps !== null && !best) best = { alg, reps, ...(extra ? { extra } : {}) };
   }
   return best;
 }
@@ -56,7 +69,7 @@ export function exerciseFor(alg: string): { alg: string; reps: number } | null {
  * cube tourné d'une répétition à l'autre (V-perm avec y…).
  */
 export function cubeMoves(ex: WarmupExercise, k = ex.reps): string[] {
-  return physicalQuarters(repeat(ex.alg, k)).map(switchFrame);
+  return physicalQuarters(repeat(repetitionAlg(ex), k)).map(switchFrame);
 }
 
 /** États attendus (repère cube) : index k = après k répétitions ; le dernier = le départ. */
@@ -183,7 +196,7 @@ export class WarmupTracker {
     holding: Holding = DEFAULT_HOLDING,
   ) {
     this.rotation = holdingRotation(holding);
-    const moves = physicalQuarters(`${this.rotation} ${repeat(exercise.alg, exercise.reps)}`).map(switchFrame);
+    const moves = physicalQuarters(`${this.rotation} ${repeat(repetitionAlg(exercise), exercise.reps)}`).map(switchFrame);
     this.states = [start];
     for (const m of moves) this.states.push(applyAlg(this.states[this.states.length - 1], m));
     this.expectedMoves = moves.length;

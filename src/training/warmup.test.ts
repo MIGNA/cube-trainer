@@ -32,15 +32,20 @@ describe("échauffement", () => {
     for (const ex of list) expect(ex.reps, ex.label).toBe(6);
   });
 
-  it("chaque PLL proposée se boucle en 4 répétitions au plus (AUF ajouté si besoin)", () => {
+  it("chaque PLL proposée se boucle en 4 répétitions au plus, formule telle quelle (retour à la tenue de départ)", () => {
     for (const c of PLL_CASES) {
       for (const alg of suggestedAlgs(c)) {
         const ex = exerciseFor(alg);
         expect(ex, `${c.id} : ${alg}`).not.toBeNull();
         expect(ex!.reps, `${c.id} : ${alg}`).toBeLessThanOrEqual(4);
+        expect(ex!.alg).toBe(alg);
+        expect(ex!.extra ?? "", `${c.id} : ${alg}`).not.toMatch(/U/); // jamais d'AUF ajouté
       }
     }
     expect(exerciseFor("R U R' U' R' F R2 U' R' U' R U R' F'")).toEqual({ alg: "R U R' U' R' F R2 U' R' U' R U R' F'", reps: 2 });
+    // V-perm avec y : on reprend le cube vert devant (y') → ×2.
+    expect(exerciseFor("R' U R' U' y R' F' R2 U' R' U R' F R F")).toEqual({ alg: "R' U R' U' y R' F' R2 U' R' U R' F R F", reps: 2, extra: "y'" });
+    expect(exerciseFor("M' U M2 U M2 U M' U2 M2")?.reps).toBe(4); // Z : pas de U ajouté
   });
 
   it("quarts de tour vus par le cube : R2 = 2, M = 2 faces, rotation = 0", () => {
