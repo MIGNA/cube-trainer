@@ -6,7 +6,8 @@ import {
   cubeFacelets,
   cubeStatus,
   disconnectCube,
-  getCube,
+  markCubeSolved,
+  resyncCube,
   isWebBluetoothAvailable,
   onCubeEvent,
   syncMismatch,
@@ -54,8 +55,8 @@ function cubeSection(): { el: HTMLElement; cleanup: () => void } {
   const connectBtn = h("button", { onclick: () => void connectGanCube(macInput.value) }, "Connecter le cube");
   const keyboardBtn = h("button", { class: "secondary", onclick: () => void connectKeyboardCube() }, "Cube clavier (dev)");
   const disconnectBtn = h("button", { class: "secondary danger", onclick: () => void disconnectCube() }, "Déconnecter");
-  const readBtn = h("button", { class: "secondary", onclick: () => void getCube()?.requestFacelets() }, "Vérifier la synchro");
-  const resetBtn = h("button", { class: "secondary", onclick: () => void getCube()?.markSolved() }, "Marquer comme résolu");
+  const readBtn = h("button", { class: "secondary", onclick: () => void resyncCube() }, "Vérifier la synchro");
+  const resetBtn = h("button", { class: "secondary", onclick: () => void markCubeSolved() }, "Marquer comme résolu");
 
   const info = {
     id: h("dd", {}, "—"),

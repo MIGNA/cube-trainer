@@ -16,9 +16,10 @@ function toCubeEvent(event: GanCubeEvent): CubeEvent | null {
         move: event.move,
         timestamp: event.localTimestamp ?? event.timestamp,
         cubeTimestamp: event.cubeTimestamp,
+        serial: event.serial & 0xff,
       };
     case "FACELETS":
-      return { type: "facelets", facelets: event.facelets };
+      return { type: "facelets", facelets: event.facelets, serial: event.serial & 0xff };
     case "BATTERY":
       return { type: "battery", level: event.batteryLevel };
     case "HARDWARE":

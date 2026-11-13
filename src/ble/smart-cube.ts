@@ -11,11 +11,15 @@ export type CubeEvent =
       timestamp: number;
       /** Horodatage interne du cube si disponible (plus précis pour les temps d'exécution). */
       cubeTimestamp: number | null;
+      /** Numéro d'ordre du cube (0-255, +1 par mouvement), s'il en donne un. */
+      serial?: number;
     }
   | {
       type: "facelets";
       /** 54 caractères, ordre Kociemba URFDLB. */
       facelets: string;
+      /** Numéro d'ordre du dernier mouvement compté dans cet état, s'il est connu. */
+      serial?: number;
     }
   | { type: "battery"; level: number }
   | { type: "hardware"; name?: string; hardwareVersion?: string; softwareVersion?: string }

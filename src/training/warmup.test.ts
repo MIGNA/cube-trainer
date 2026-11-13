@@ -261,6 +261,58 @@ describe("échauffement", () => {
       }
     });
 
+    it("mouvements en trop à la fin de l'exercice précédent : à défaire, sans compter ni lancer le chrono", () => {
+      const ex = sexy();
+      // Le précédent s'est terminé sur `scrambled`, puis le joueur a fait R' F en trop (repère cube).
+      const carry = ["R'", "F"];
+      const tracker = new WarmupTracker(ex, scrambled, DEFAULT_HOLDING, carry);
+      expect(tracker.settling).toBe(true);
+      expect(tracker.lost).toBe(true);
+      expect(tracker.corrections()).toEqual(["F'", "L"]); // F' puis R (repère cube), vus jaune en haut, vert devant
+      let state = applyAlg(scrambled, carry.join(" "));
+      state = feed(tracker, state, ["F'", "R"]);
+      expect(tracker.settling).toBe(false);
+      expect(tracker.lost).toBe(false);
+      expect(tracker.pos).toBe(0);
+      expect(tracker.moves).toBe(0);
+      expect(tracker.firstMoveAt).toBeNull();
+      feed(tracker, state, cubeMoves(ex));
+      expect(tracker.finished).toBe(true);
+      expect(tracker.extraMoves).toBe(0);
+    });
+
+    it("quart de tour perdu (U2 vu comme U) puis formule continuée : le suivi se raccroche", () => {
+      const ex = triggerExercises()[2];
+      expect(ex.label).toBe("Anti-Sune (la chaise)");
+      const moves = cubeMoves(ex);
+      const missing = 2 * 8 + 2; // 3e répétition, 2e quart du U2
+      expect(moves[missing]).toBe(moves[missing - 1]);
+      const played = [...moves.slice(0, missing), ...moves.slice(missing + 1)];
+      const tracker = new WarmupTracker(ex, scrambled);
+      let state = feed(tracker, scrambled, played);
+      // Rattrapé : plus perdu. Le cube n'est pas revenu au départ (un quart de tour manque) :
+      // en continuant la formule, l'exercice se termine quand il y revient.
+      expect(tracker.lost).toBe(false);
+      const rep = moves.slice(0, moves.length / ex.reps);
+      for (let k = 0; k < 6 && !tracker.finished; k++) state = feed(tracker, state, rep);
+      expect(tracker.finished).toBe(true);
+    });
+
+    it("mouvement perdu par l'appli : l'état renvoyé par le cube recale le suivi", () => {
+      const ex = triggerExercises()[2]; // chaise
+      const moves = cubeMoves(ex);
+      const tracker = new WarmupTracker(ex, scrambled);
+      // Le cube fait bien L D D L' mais l'appli ne reçoit qu'un D.
+      let model = feed(tracker, scrambled, ["L", "D"]);
+      model = applyAlg(model, "L'");
+      tracker.move("L'", model, 1000);
+      expect(tracker.lost).toBe(true);
+      const real = applyAlg(scrambled, moves.slice(0, 4).join(" "));
+      tracker.observe(real, 2000);
+      expect(tracker.lost).toBe(false);
+      expect(tracker.pos).toBe(4);
+    });
+
     it("A-perm (rotations x) : répétitions comptées une par une", () => {
       const ex = pllEx("Aa");
       const tracker = new WarmupTracker(ex, scrambled);

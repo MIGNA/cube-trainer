@@ -163,6 +163,8 @@ const QUARTERS = ["U", "U'", "R", "R'", "F", "F'", "D", "D'", "L", "L'", "B", "B
 
 /** Écart toléré : un U2 fait en U' U', etc. */
 const LOOKAHEAD = 3;
+/** Mouvements justes d'affilée après un écart pour repartir de là. */
+const REANCHOR = 6;
 /** Retour en arrière toléré (mouvements défaits). */
 const LOOKBACK = 8;
 
@@ -176,11 +178,26 @@ export class WarmupTracker {
   readonly expectedMoves: number;
   /** Quarts de tour par répétition. */
   readonly perRep: number;
+  /** État de départ attendu (et d'arrivée : l'exercice boucle), repère cube. */
+  get startState(): string {
+    return this.states[0];
+  }
+
+  /**
+   * Le cube n'était pas au départ de l'exercice (mouvements en trop à la fin du précédent) :
+   * tant qu'il n'y est pas revenu, rien ne compte.
+   */
+  settling: boolean;
+
+  /** Quarts de tour attendus (repère cube), toutes répétitions. */
+  readonly expected: string[];
   /** Rotation qui donne la tenue du joueur (pour lui traduire les corrections). */
   private readonly rotation: string;
   /** États attendus (repère cube) : index k = après k quarts de tour. */
-  private readonly states: string[];
-  private readonly blocks: AxisBlock[];
+  private states: string[];
+  private blocks: AxisBlock[];
+  /** États du cube reçus (les derniers), pour se raccrocher après un écart. */
+  private history: string[] = [];
   /** Quarts de tour de la formule déjà faits (sur toutes les répétitions). */
   pos = 0;
   /** Quarts de tour reçus. */
@@ -194,14 +211,50 @@ export class WarmupTracker {
     readonly exercise: WarmupExercise,
     start: string,
     holding: Holding = DEFAULT_HOLDING,
+    /**
+     * Mouvements faits depuis `start` avant le début de l'exercice (en trop à la fin du
+     * précédent, repère cube) : à défaire d'abord, sans compter ni lancer le chrono.
+     */
+    carry: readonly string[] = [],
   ) {
+    this.offTrack = [...carry];
+    this.settling = carry.length > 0;
     this.rotation = holdingRotation(holding);
     const moves = physicalQuarters(`${this.rotation} ${repeat(repetitionAlg(exercise), exercise.reps)}`).map(switchFrame);
-    this.states = [start];
-    for (const m of moves) this.states.push(applyAlg(this.states[this.states.length - 1], m));
+    this.expected = moves;
     this.expectedMoves = moves.length;
     this.perRep = moves.length / exercise.reps;
+    this.states = this.statesFrom(start);
     this.blocks = axisBlocks(moves, this.states, this.perRep);
+  }
+
+  private statesFrom(start: string): string[] {
+    const states = [start];
+    for (const m of this.expected) states.push(applyAlg(states[states.length - 1], m));
+    return states;
+  }
+
+  /**
+   * Après un écart, le joueur a continué la formule sans défaire (quart de tour perdu par
+   * le cube, U au lieu de U2…) : si ses derniers mouvements font un bout de la formule, on
+   * repart de là (le départ attendu est recalculé), au lieu de rester perdu.
+   */
+  private reanchor(state: string): boolean {
+    const m = Math.min(REANCHOR, this.perRep);
+    if (this.offTrack.length < m || this.history.length <= m) return false;
+    const before = this.history[this.history.length - 1 - m];
+    const candidates = Array.from({ length: this.expectedMoves - m + 1 }, (_, i) => i + m).sort(
+      (a, b) => Math.abs(a - this.pos) - Math.abs(b - this.pos),
+    );
+    const p = candidates.find((c) => applyAlg(before, this.expected.slice(c - m, c).join(" ")) === state);
+    if (p === undefined || p === this.expectedMoves) return false;
+    const undo = this.expected.slice(0, p).reverse().map(invertQuarter).join(" ");
+    this.states = this.statesFrom(applyAlg(state, undo));
+    this.blocks = axisBlocks(this.expected, this.states, this.perRep);
+    this.pos = p;
+    this.offTrack = [];
+    this.pending = false;
+    return true;
   }
 
   /** Répétitions terminées. */
@@ -258,14 +311,48 @@ export class WarmupTracker {
     return -1;
   }
 
+  /**
+   * État réel renvoyé par le cube (sans mouvement) : si le modèle s'était trompé
+   * (mouvement perdu en route), le suivi se recale dessus.
+   */
+  observe(state: string, now: number): void {
+    if (this.finished || state === this.history[this.history.length - 1]) return;
+    const found = this.find(state);
+    if (found < 0) return;
+    if (this.settling) {
+      this.settling = false;
+      if (found === 0) {
+        this.offTrack = [];
+        return;
+      }
+    }
+    this.pos = found;
+    this.offTrack = [];
+    this.pending = false;
+    this.history.push(state);
+    if (this.finished) this.finishedAt = now;
+  }
+
   /** À appeler après chaque quart de tour reçu : mouvement et état du cube (repère cube). */
   move(move: string, state: string, now: number): void {
     if (this.finished) return;
+    this.history.push(state);
+    if (this.history.length > 32) this.history.shift();
+    const found = this.find(state);
+    if (this.settling) {
+      if (found < 0) {
+        this.offTrack.push(move);
+        return;
+      }
+      this.settling = false;
+      this.offTrack = [];
+      if (found === 0) return; // revenu au départ : l'exercice peut commencer
+    }
     this.moves++;
     this.firstMoveAt ??= now;
-    const found = this.find(state);
     if (found < 0) {
       this.offTrack.push(move);
+      if (this.reanchor(state)) return;
       // À un quart de tour de la suite de la formule ? (demi-tour dans l'autre sens…)
       const ahead = new Set(this.states.slice(this.pos + 1, this.pos + 1 + LOOKAHEAD));
       this.pending = this.offTrack.length === 1 && QUARTERS.some((q) => ahead.has(applyAlg(state, q)));

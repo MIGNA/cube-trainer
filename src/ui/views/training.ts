@@ -4,11 +4,11 @@
 // (« Démarrer » / « Terminé »).
 
 import type { View } from "../../app/router";
-import { cubeFacelets, cubeStatus, onCubeEvent } from "../../ble/cube-service";
+import { cubeFacelets, cubeStatus, onCubeEvent, resyncCube } from "../../ble/cube-service";
 import { mainAlg } from "../../cube/case-algs";
 import { PLL_CASES } from "../../cube/cases";
 import type { TrainingItem } from "../../storage/db";
-import type { Face } from "../../cube/facelets";
+import { applyAlg, type Face } from "../../cube/facelets";
 import { getSetting, setSetting } from "../../storage/settings";
 import { addTrainingSession } from "../../storage/training";
 import { formatTime } from "../../timer/format";
@@ -163,7 +163,11 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   let manualStart: number | null = null;
   let ticker = 0;
   let nextTimer = 0;
+  /** Suivi perdu : on redemande son état au cube dès que le joueur s'arrête (mouvement perdu en route…). */
+  let resyncTimer = 0;
   let saved = false;
+  /** Mouvements reçus après la fin de l'exercice (en trop), repère cube. */
+  let afterEnd: string[] = [];
 
   const isConnected = () => cubeStatus.get().state === "connected" && cubeFacelets.get() !== null;
 
@@ -178,14 +182,23 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   const clock = h("p", { class: "big-time warmup-clock" });
   const note = h("p", { class: "muted small" });
   const mainBtn = h("button", {});
-  const restartBtn = h("button", { class: "secondary", onclick: () => startExercise() }, "Recommencer l'exercice");
+  const restartBtn = h("button", { class: "secondary", onclick: () => startExercise(null) }, "Recommencer l'exercice");
   const skipBtn = h("button", { class: "secondary", onclick: () => finish(true) }, "Passer");
   const quitBtn = h("button", { class: "link", onclick: () => endSession() }, "Arrêter la séance");
 
-  function startExercise(): void {
+  /**
+   * Démarre l'exercice en cours. `from` : fin de l'exercice précédent (état d'arrivée et
+   * mouvements faits en trop depuis) ; le nouvel exercice part de cet état, et les
+   * mouvements en trop sont à défaire d'abord.
+   */
+  function startExercise(from: { state: string; moves: string[] } | null): void {
     const ex = exercises[index];
     clearInterval(ticker);
-    tracker = isConnected() ? new WarmupTracker(ex, cubeFacelets.get()!, holding) : null;
+    afterEnd = [];
+    const current = cubeFacelets.get();
+    const carried = from && current && from.moves.length && applyAlg(from.state, from.moves.join(" ")) === current ? from : null;
+    tracker = isConnected() ? new WarmupTracker(ex, carried ? carried.state : current!, holding, carried?.moves ?? []) : null;
+    if (import.meta.env.DEV && tracker) console.log(`[échauffement] ${ex.label} : attendu (repère cube) ${tracker.expected.slice(0, tracker.perRep).join(" ")}`);
     manualStart = null;
     progress.textContent = `Exercice ${index + 1} / ${exercises.length} · ${ex.kind === "trigger" ? "trigger" : "PLL"}`;
     title.textContent = ex.label;
@@ -223,7 +236,9 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
       moveProgress(weights, tracker.posInRep).forEach((st, i) => moveEls[i]?.setAttribute("data-progress", st));
       const fixes = tracker.lost ? tracker.corrections() : [];
       fix.hidden = !tracker.lost;
-      fix.textContent = fixes === null ? "⚠ Défais tes derniers mouvements (ou « Recommencer l'exercice »)." : `⚠ Défais : ${fixes.join(" ")}`;
+      const before = tracker.settling ? "Mouvements en trop à la fin de l'exercice précédent. " : "";
+      fix.textContent =
+        fixes === null ? `⚠ ${before}Défais tes derniers mouvements (ou « Recommencer l'exercice »).` : `⚠ ${before}Défais : ${fixes.join(" ")}`;
       mainBtn.hidden = true;
       restartBtn.hidden = false;
     } else {
@@ -256,15 +271,17 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
       ...(tracker ? { moves: tracker.moves } : {}),
       ...(skipped ? { skipped: true } : {}),
     });
+    const from = tracker?.finished && !skipped ? { state: tracker.startState, moves: afterEnd } : null;
     tracker = null;
     index++;
-    if (index < exercises.length) startExercise();
+    if (index < exercises.length) startExercise(from);
     else endSession();
   }
 
   async function endSession(): Promise<void> {
     clearInterval(ticker);
     clearTimeout(nextTimer);
+    clearTimeout(resyncTimer);
     tracker = null;
     const done = results.filter((r) => !r.skipped);
     if (done.length && !saved) {
@@ -307,8 +324,26 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   }
 
   const unsubscribeMoves = onCubeEvent((event) => {
-    if (event.type !== "move" || !tracker || tracker.finished) return;
-    tracker.move(event.move, cubeFacelets.get()!, performance.now());
+    if (!tracker || (event.type !== "move" && event.type !== "facelets")) return;
+    if (tracker.finished) {
+      if (event.type === "move") afterEnd.push(event.move); // en trop : à défaire au début de l'exercice suivant
+      return;
+    }
+    if (event.type === "facelets") {
+      // État réel renvoyé par le cube : le suivi se recale dessus.
+      tracker.observe(cubeFacelets.get()!, performance.now());
+      if (import.meta.env.DEV) console.log(`[échauffement] état du cube n°${event.serial ?? "?"} → pos ${tracker.pos}/${tracker.expectedMoves}${tracker.lost ? " · toujours perdu" : ""}`);
+    } else {
+      tracker.move(event.move, cubeFacelets.get()!, performance.now());
+      // Dev : trace de chaque mouvement reçu, pour comprendre un suivi qui se perd.
+      if (import.meta.env.DEV) {
+        console.log(
+          `[échauffement] ${event.move.padEnd(2)} n°${event.serial ?? "?"} → pos ${tracker.pos}/${tracker.expectedMoves}${tracker.lost ? ` · perdu, défais : ${tracker.corrections()?.join(" ") ?? "?"}` : ""}`,
+        );
+      }
+      clearTimeout(resyncTimer);
+      if (tracker.lost) resyncTimer = window.setTimeout(() => void resyncCube(), 1000);
+    }
     render();
     if (tracker.finished) {
       clearInterval(ticker);
@@ -336,12 +371,13 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
       quitBtn,
     ),
   );
-  if (exercises.length) startExercise();
+  if (exercises.length) startExercise(null);
   else void endSession();
 
   return () => {
     clearInterval(ticker);
     clearTimeout(nextTimer);
+    clearTimeout(resyncTimer);
     unsubscribeMoves();
     unsubscribeStatus();
   };
