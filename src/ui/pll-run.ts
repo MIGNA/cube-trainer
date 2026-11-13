@@ -8,7 +8,7 @@ import { PLL_CASES } from "../cube/cases";
 import type { TrainingItem } from "../storage/db";
 import { addTrainingSession } from "../storage/training";
 import { PllRunTracker, pllStats, type PllDone } from "../training/pll-run";
-import type { PllChoice } from "../training/warmup";
+import type { Holding, PllChoice } from "../training/warmup";
 import { caseSvg } from "./case-svg";
 import { h } from "./dom";
 import { onHelperSolved } from "./solve-sheet";
@@ -16,10 +16,10 @@ import { onHelperSolved } from "./solve-sheet";
 const pllName = (id: string) => `${id}-perm`;
 
 /** Déroule l'exercice ; renvoie la fonction de nettoyage. */
-export function runPllRun(container: HTMLElement, choices: PllChoice[], onQuit: () => void): () => void {
+export function runPllRun(container: HTMLElement, choices: PllChoice[], holding: Holding, onQuit: () => void): () => void {
   const connected = cubeStatus.get().state === "connected" && cubeFacelets.get() !== null;
   const algs = Object.fromEntries(choices.map((c) => [c.id, c.alg]));
-  const tracker = connected ? new PllRunTracker(algs, cubeFacelets.get()!) : null;
+  const tracker = connected ? new PllRunTracker(algs, cubeFacelets.get()!, holding) : null;
   const manual: PllDone[] = [];
   const done = () => tracker?.done ?? manual;
   const order = PLL_CASES.filter((c) => choices.some((p) => p.id === c.id));
@@ -55,10 +55,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], onQuit: 
     "button",
     {
       class: "secondary",
-      onclick: () => {
-        manual.pop();
-        update(null);
-      },
+      onclick: () => undoLast(),
     },
     "Annuler la dernière",
   );
@@ -75,6 +72,12 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], onQuit: 
     "Repartir d'ici",
   );
   const endBtn = h("button", { onclick: () => void end() }, "Terminer");
+
+  function undoLast(): void {
+    const removed = tracker ? tracker.undo() : manual.pop();
+    update(null);
+    last.textContent = removed ? `${pllName(removed.id)} annulée.` : "Rien à annuler.";
+  }
 
   function update(justDone: string | null): void {
     const list = done();
@@ -106,7 +109,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], onQuit: 
         ? `${pllName(lastDone.id)}${known} · ${lastDone.extra ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop` : "sans erreur"}`
         : `${pllName(lastDone.id)} cochée.`;
     } else if (!justDone) last.textContent = "";
-    undoBtn.hidden = tracker !== null || manual.length === 0;
+    undoBtn.hidden = done().length === 0;
   }
 
   let saved = false;
@@ -166,14 +169,19 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], onQuit: 
 
   const unsubscribe = onCubeEvent((event) => {
     if (!tracker || (event.type !== "move" && event.type !== "facelets")) return;
-    const e = event.type === "move" ? tracker.move(cubeFacelets.get()!) : tracker.observe(cubeFacelets.get()!);
+    const e = event.type === "move" ? tracker.move(event.move, cubeFacelets.get()!) : tracker.observe(cubeFacelets.get()!);
     if (import.meta.env.DEV) {
       const what = event.type === "move" ? event.move : "état du cube";
-      const info = e ? ` → ${e.kind === "pll" ? `${e.done.id} (${e.done.extra} en trop)` : "retour à l'état d'avant"}` : "";
+      const info = e ? ` → ${e.kind === "pll" ? `${e.done.id} (${e.done.extra} en trop)` : e.kind}` : "";
       console.log(`[toutes les PLL] ${what} · ${tracker.since} depuis la dernière PLL${info}`);
     }
     if (e?.kind === "pll") update(e.done.id);
     else if (e?.kind === "back") last.textContent = "Revenu à l'état d'avant : vas-y, la PLL sera reconnue.";
+    else if (e?.kind === "reset") last.textContent = "U4 : on repart d'ici.";
+    else if (e?.kind === "undo") {
+      update(null);
+      last.textContent = e.done ? `D4 : ${pllName(e.done.id)} annulée.` : "D4 : rien à annuler.";
+    }
   });
 
   // Cube résolu avec le bouton « Résoudre » : on repart de là.
@@ -193,13 +201,13 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], onQuit: 
         "p",
         { class: "muted small" },
         tracker
-          ? "Enchaîne tes PLL dans l'ordre que tu veux : chacune est cochée dès que sa formule est faite (reconnue par son effet sur le cube : AUF libres, tiens le cube comme tu veux). Erreur ? Reviens à l'état d'avant la PLL et recommence."
+          ? "Enchaîne tes PLL dans l'ordre que tu veux : chacune est cochée dès que sa formule est faite (reconnue par son effet sur le cube : AUF libres, tiens le cube comme tu veux). Erreur ? Reviens à l'état d'avant la PLL et recommence, ou fais U4 (4 fois U) pour repartir d'où tu es. Mauvaise reconnaissance ? D4 (4 fois D) l'annule."
           : "Sans cube : touche la case de chaque PLL que tu viens de faire.",
       ),
       counter,
       last,
       grid,
-      h("div", { class: "row" }, tracker ? restartBtn : undoBtn, endBtn),
+      h("div", { class: "row" }, ...(tracker ? [restartBtn] : []), undoBtn, endBtn),
     ),
   );
   update(null);

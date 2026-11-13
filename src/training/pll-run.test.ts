@@ -18,7 +18,7 @@ function play(tracker: PllRunTracker, start: string, moves: string[]): { state: 
   const found: string[] = [];
   for (const m of moves) {
     state = applyMove(state, m);
-    const e = tracker.move(state);
+    const e = tracker.move(m, state);
     if (e?.kind === "pll") found.push(e.done.id);
   }
   return { state, found };
@@ -56,7 +56,7 @@ describe("toutes mes PLL", () => {
     let state = scrambled;
     const events = [...wrong, ...undo].map((m) => {
       state = applyMove(state, m);
-      return tracker.move(state);
+      return tracker.move(m, state);
     });
     expect(events.at(-1)).toEqual({ kind: "back" });
     expect(tracker.done).toEqual([]);
@@ -84,6 +84,32 @@ describe("toutes mes PLL", () => {
       ["Ua", 0, 2],
       ["Ja", 2, 1],
     ]);
+  });
+
+  it("gestes : U4 = repartir d'ici, D4 = annuler la dernière PLL (face du haut / du bas de la tenue)", () => {
+    const tracker = new PllRunTracker({}, scrambled);
+    let { state } = play(tracker, scrambled, cube(alg("T")));
+    expect(tracker.done.map((d) => d.id)).toEqual(["T"]);
+    // Début de Ja raté, puis U4 (jaune en haut → le cube voit D) : on repart d'ici, rien de compté.
+    ({ state } = play(tracker, state, [...cube(alg("Ja")).slice(0, 4), "R"]));
+    let e = null;
+    for (const m of cube("U U U U")) {
+      state = applyMove(state, m);
+      e = tracker.move(m, state);
+    }
+    expect(e).toEqual({ kind: "reset" });
+    expect(tracker.since).toBe(0);
+    ({ state } = play(tracker, state, cube(alg("H"))));
+    expect(tracker.done.map((d) => d.id)).toEqual(["T", "H"]);
+    expect(tracker.done[1].extra).toBe(0);
+    // D4 : la dernière (H) est annulée.
+    for (const m of cube("D' D' D' D'")) {
+      state = applyMove(state, m);
+      e = tracker.move(m, state);
+    }
+    expect(e).toEqual({ kind: "undo", done: expect.objectContaining({ id: "H" }) });
+    expect(tracker.done.map((d) => d.id)).toEqual(["T"]);
+    expect(tracker.since).toBe(0);
   });
 
   it("une simple suite de triggers n'est pas prise pour une PLL", () => {

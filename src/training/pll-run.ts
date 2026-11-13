@@ -7,7 +7,7 @@
 import { PLL_CASES } from "../cube/cases";
 import { applyAlg } from "../cube/facelets";
 import { physicalQuarters, switchFrame } from "../cube/setup";
-import { holdingRotation } from "./warmup";
+import { DEFAULT_HOLDING, holdingRotation, type Holding } from "./warmup";
 
 /** Permutation des 54 facelets : état suivant[i] = état précédent[perm[i]]. */
 type Perm = number[];
@@ -69,8 +69,11 @@ let cachedVariants: Variant[] | null = null;
 /** Quarts de tour vus par le cube pour une formule (rotations = 0). */
 export const quarterCount = (alg: string) => physicalQuarters(alg).length;
 
-/** Ce qu'un mouvement a déclenché : une PLL reconnue, ou le retour à l'état d'avant (tentative ratée défaite). */
-export type PllRunEvent = { kind: "pll"; done: PllDone } | { kind: "back" };
+/**
+ * Ce qu'un mouvement a déclenché : une PLL reconnue, le retour à l'état d'avant (tentative
+ * ratée défaite), ou un geste : U4 = repartir d'ici, D4 = annuler la dernière PLL reconnue.
+ */
+export type PllRunEvent = { kind: "pll"; done: PllDone } | { kind: "back" } | { kind: "reset" } | { kind: "undo"; done: PllDone | null };
 
 /**
  * Chaque formule est reconnue par son effet sur le cube depuis la PLL précédente. Après
@@ -87,23 +90,52 @@ export class PllRunTracker {
   /** Mouvements des tentatives ratées puis défaites, depuis la dernière PLL. */
   wasted = 0;
   readonly done: PllDone[] = [];
+  /** Faces du haut et du bas (repère cube) d'après la tenue du joueur, pour les gestes U4 / D4. */
+  private readonly up: string;
+  private readonly down: string;
+  /** Dernier mouvement et nombre de fois d'affilée (gestes). */
+  private run = { move: "", count: 0 };
 
   /**
    * @param algs formule du joueur par PLL (pour compter les mouvements en trop) ; les PLL
    *   absentes sont reconnues quand même, comparées à la formule standard.
+   * @param holding tenue du joueur : ne sert qu'aux gestes (U4 / D4), pas à la reconnaissance.
    */
   constructor(
     private readonly algs: Readonly<Record<string, string>>,
     start: string,
+    holding: Holding = DEFAULT_HOLDING,
   ) {
     this.variants = cachedVariants ??= pllVariants();
     this.checkpoint = start;
+    const rotation = holdingRotation(holding);
+    this.up = switchFrame(physicalQuarters(`${rotation} U`)[0]);
+    this.down = switchFrame(physicalQuarters(`${rotation} D`)[0]);
   }
 
-  /** À appeler après chaque quart de tour reçu (état du cube, repère cube). */
-  move(state: string): PllRunEvent | null {
+  /** À appeler après chaque quart de tour reçu : mouvement et état du cube (repère cube). */
+  move(move: string, state: string): PllRunEvent | null {
     this.since++;
+    this.run = this.run.move === move ? { move, count: this.run.count + 1 } : { move, count: 1 };
+    // Geste : quatre quarts de tour d'affilée de la face du haut ou du bas (le cube revient où il était).
+    if (this.run.count === 4) {
+      const face = move[0];
+      this.run = { move: "", count: 0 };
+      if (face === this.up) {
+        this.restart(state);
+        return { kind: "reset" };
+      }
+      if (face === this.down) {
+        this.since -= 4;
+        return { kind: "undo", done: this.done.pop() ?? null };
+      }
+    }
     return this.check(state);
+  }
+
+  /** Annule la dernière PLL reconnue (mauvaise reconnaissance) ; la reconnaissance continue d'ici. */
+  undo(): PllDone | null {
+    return this.done.pop() ?? null;
   }
 
   /** État renvoyé par le cube sans mouvement (modèle recalé) : on revérifie. */
@@ -127,6 +159,7 @@ export class PllRunTracker {
     this.checkpoint = state;
     this.since = 0;
     this.wasted = 0;
+    this.run = { move: "", count: 0 };
     return { kind: "pll", done };
   }
 
@@ -135,6 +168,7 @@ export class PllRunTracker {
     this.checkpoint = state;
     this.since = 0;
     this.wasted = 0;
+    this.run = { move: "", count: 0 };
   }
 }
 

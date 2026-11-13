@@ -155,7 +155,7 @@ export const trainingView: View = {
       showRunChoice();
       async function beginRun(): Promise<void> {
         const chosen = (await pllChoices()).filter((p) => withLearning || p.status === "known");
-        cleanupSession = runPllRun(container, chosen, home);
+        cleanupSession = runPllRun(container, chosen, holding, home);
       }
 
       container.replaceChildren(
