@@ -69,7 +69,10 @@ describe("toutes mes PLL", () => {
     const tracker = new PllRunTracker({ T: t }, scrambled);
     const moves = cube(t);
     const { state } = play(tracker, scrambled, [...moves.slice(0, 3), "F", "F'", ...moves.slice(3)]);
-    expect(tracker.done).toEqual([{ id: "T", moves: moves.length + 2, extra: 2 }]);
+    expect(tracker.done).toEqual([
+      // Mouvements faits écrits comme le joueur tient le cube (jaune en haut) : le F F' apparaît.
+      { id: "T", moves: moves.length + 2, extra: 2, expected: t, played: "R U R' F F' U' R' F R2 U' R' U' R U R' F'" },
+    ]);
     play(tracker, state, moves);
     expect(pllStats(tracker.done)).toEqual([{ id: "T", count: 2, clean: 1, withErrors: 1, extra: 2, moves: 2 * moves.length + 2 }]);
     // Une erreur énorme ne pèse pas plus qu'une petite : on trie par passages ratés.
@@ -110,6 +113,21 @@ describe("toutes mes PLL", () => {
     expect(e).toEqual({ kind: "undo", done: expect.objectContaining({ id: "H" }) });
     expect(tracker.done.map((d) => d.id)).toEqual(["T"]);
     expect(tracker.since).toBe(0);
+  });
+
+  it("R4 = terminer ; tentative ratée gardée pour l'affichage", () => {
+    const t = alg("T");
+    const tracker = new PllRunTracker({ T: t }, scrambled);
+    // Début raté (R U R'), défait (R U' R'), puis la T.
+    let { state } = play(tracker, scrambled, cube("R U R' R U' R'"));
+    ({ state } = play(tracker, state, cube(t)));
+    expect(tracker.done[0]).toMatchObject({ id: "T", extra: 6, failed: "R U R' R U' R'", played: t });
+    let e = null;
+    for (const m of cube("R R R R")) {
+      state = applyMove(state, m);
+      e = tracker.move(m, state);
+    }
+    expect(e).toEqual({ kind: "end" });
   });
 
   it("une simple suite de triggers n'est pas prise pour une PLL", () => {

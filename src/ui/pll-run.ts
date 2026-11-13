@@ -25,7 +25,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
   const order = PLL_CASES.filter((c) => choices.some((p) => p.id === c.id));
 
   const counter = h("p", { class: "pll-run-count" });
-  const last = h("p", { class: "muted small pll-run-last" });
+  const last = h("div", { class: "muted small pll-run-last" });
   const tiles = new Map<string, HTMLElement>();
   const grid = h(
     "div",
@@ -57,7 +57,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
       class: "secondary",
       onclick: () => undoLast(),
     },
-    "Annuler la dernière",
+    connected ? "Annuler la dernière (D4)" : "Annuler la dernière",
   );
   const restartBtn = h(
     "button",
@@ -69,9 +69,22 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
         last.textContent = "Nouveau départ : l'état actuel du cube. La tentative en cours est oubliée.";
       },
     },
-    "Repartir d'ici",
+    "Repartir d'ici (U4)",
   );
-  const endBtn = h("button", { onclick: () => void end() }, "Terminer");
+  const endBtn = h("button", { onclick: () => void end() }, connected ? "Terminer (R4)" : "Terminer");
+
+  /** Formule attendue et mouvements faits (pour comprendre une erreur). */
+  function detail(d: PllDone): HTMLElement {
+    return h(
+      "dl",
+      { class: "pll-detail" },
+      h("dt", {}, "Attendu"),
+      h("dd", {}, h("code", {}, d.expected ?? "")),
+      h("dt", {}, "Fait"),
+      h("dd", {}, h("code", {}, d.played ?? "")),
+      ...(d.failed ? [h("dt", {}, "Raté avant"), h("dd", {}, h("code", {}, d.failed))] : []),
+    );
+  }
 
   function undoLast(): void {
     const removed = tracker ? tracker.undo() : manual.pop();
@@ -105,9 +118,10 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
     const lastDone = list.at(-1);
     if (justDone && lastDone) {
       const known = order.some((c) => c.id === lastDone.id) ? "" : " (pas dans ta liste)";
-      last.textContent = tracker
-        ? `${pllName(lastDone.id)}${known} · ${lastDone.extra ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop` : "sans erreur"}`
-        : `${pllName(lastDone.id)} cochée.`;
+      if (tracker) {
+        const head = `${pllName(lastDone.id)}${known} · ${lastDone.extra ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop` : "sans erreur"}`;
+        last.replaceChildren(head, ...(lastDone.extra ? [detail(lastDone)] : []));
+      } else last.textContent = `${pllName(lastDone.id)} cochée.`;
     } else if (!justDone) last.textContent = "";
     undoBtn.hidden = done().length === 0;
   }
@@ -155,6 +169,14 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
               ),
             ),
         missing.length ? h("p", { class: "muted small" }, `Pas faites : ${missing.map((c) => c.id).join(", ")}.`) : null,
+        ...(tracker && list.some((d) => d.extra > 0)
+          ? [
+              h("h3", {}, "Passages avec erreurs"),
+              ...list
+                .filter((d) => d.extra > 0)
+                .map((d) => h("div", { class: "pll-detail-block" }, h("strong", {}, `${pllName(d.id)} · ${d.extra} en trop`), detail(d))),
+            ]
+          : []),
         tracker
           ? h(
               "p",
@@ -178,6 +200,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
     if (e?.kind === "pll") update(e.done.id);
     else if (e?.kind === "back") last.textContent = "Revenu à l'état d'avant : vas-y, la PLL sera reconnue.";
     else if (e?.kind === "reset") last.textContent = "U4 : on repart d'ici.";
+    else if (e?.kind === "end") void end();
     else if (e?.kind === "undo") {
       update(null);
       last.textContent = e.done ? `D4 : ${pllName(e.done.id)} annulée.` : "D4 : rien à annuler.";
@@ -201,7 +224,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
         "p",
         { class: "muted small" },
         tracker
-          ? "Enchaîne tes PLL dans l'ordre que tu veux : chacune est cochée dès que sa formule est faite (reconnue par son effet sur le cube : AUF libres, tiens le cube comme tu veux). Erreur ? Reviens à l'état d'avant la PLL et recommence, ou fais U4 (4 fois U) pour repartir d'où tu es. Mauvaise reconnaissance ? D4 (4 fois D) l'annule."
+          ? "Enchaîne tes PLL dans l'ordre que tu veux : chacune est cochée dès que sa formule est faite (reconnue par son effet sur le cube : AUF libres, tiens le cube comme tu veux). Erreur ? Reviens à l'état d'avant la PLL et recommence, ou fais U4 (4 fois U) pour repartir d'où tu es. Mauvaise reconnaissance ? D4 (4 fois D) l'annule. Fini ? R4 (4 fois R)."
           : "Sans cube : touche la case de chaque PLL que tu viens de faire.",
       ),
       counter,

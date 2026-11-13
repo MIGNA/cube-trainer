@@ -293,7 +293,7 @@ export class WarmupTracker {
    */
   corrections(): string[] | null {
     if (this.offTrack.length > 6) return null;
-    return [...this.offTrack].reverse().map((m) => toPlayer(invertQuarter(m), this.rotation));
+    return [...this.offTrack].reverse().map((m) => playerMove(invertQuarter(m), this.rotation));
   }
 
   /**
@@ -416,7 +416,7 @@ const invertQuarter = (m: string) => (m.endsWith("'") ? m.slice(0, -1) : `${m}'`
 
 const playerCache = new Map<string, string>();
 /** Mouvement du cube (repère cube) exprimé comme le joueur le voit, en tenant le cube ainsi. */
-function toPlayer(cubeMove: string, holding: string): string {
+export function playerMove(cubeMove: string, holding: string): string {
   const key = `${holding}|${cubeMove}`;
   let p = playerCache.get(key);
   if (!p) {

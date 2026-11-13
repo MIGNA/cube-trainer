@@ -7,7 +7,7 @@
 import { PLL_CASES } from "../cube/cases";
 import { applyAlg } from "../cube/facelets";
 import { physicalQuarters, switchFrame } from "../cube/setup";
-import { DEFAULT_HOLDING, holdingRotation, type Holding } from "./warmup";
+import { DEFAULT_HOLDING, holdingRotation, playerMove, type Holding } from "./warmup";
 
 /** Permutation des 54 facelets : état suivant[i] = état précédent[perm[i]]. */
 type Perm = number[];
@@ -33,6 +33,12 @@ export interface PllDone {
   moves: number;
   /** Mouvements en trop par rapport à la formule du joueur (AUF non comptés). */
   extra: number;
+  /** Formule attendue (celle du joueur). */
+  expected?: string;
+  /** Mouvements faits, tels que le joueur tient le cube (quarts de tour regroupés). */
+  played?: string;
+  /** Tentatives ratées puis défaites avant (mêmes conventions). */
+  failed?: string;
 }
 
 /**
@@ -71,9 +77,15 @@ export const quarterCount = (alg: string) => physicalQuarters(alg).length;
 
 /**
  * Ce qu'un mouvement a déclenché : une PLL reconnue, le retour à l'état d'avant (tentative
- * ratée défaite), ou un geste : U4 = repartir d'ici, D4 = annuler la dernière PLL reconnue.
+ * ratée défaite), ou un geste : U4 = repartir d'ici, D4 = annuler la dernière PLL reconnue,
+ * R4 = terminer.
  */
-export type PllRunEvent = { kind: "pll"; done: PllDone } | { kind: "back" } | { kind: "reset" } | { kind: "undo"; done: PllDone | null };
+export type PllRunEvent =
+  | { kind: "pll"; done: PllDone }
+  | { kind: "back" }
+  | { kind: "reset" }
+  | { kind: "undo"; done: PllDone | null }
+  | { kind: "end" };
 
 /**
  * Chaque formule est reconnue par son effet sur le cube depuis la PLL précédente. Après
@@ -85,21 +97,25 @@ export class PllRunTracker {
   private readonly variants: Variant[];
   /** État après la dernière PLL reconnue (ou le départ). */
   private checkpoint: string;
-  /** Quarts de tour reçus depuis (tentative en cours). */
-  since = 0;
-  /** Mouvements des tentatives ratées puis défaites, depuis la dernière PLL. */
-  wasted = 0;
+  /** Mouvements reçus depuis (tentative en cours, repère cube). */
+  private attempt: string[] = [];
+  /** Mouvements des tentatives ratées puis défaites, depuis la dernière PLL (repère cube). */
+  private wastedMoves: string[] = [];
   readonly done: PllDone[] = [];
-  /** Faces du haut et du bas (repère cube) d'après la tenue du joueur, pour les gestes U4 / D4. */
+  /** Rotation de la tenue du joueur : gestes et affichage des mouvements faits. */
+  private readonly rotation: string;
+  /** Faces du haut, du bas et de droite (repère cube) d'après la tenue, pour les gestes U4 / D4 / R4. */
   private readonly up: string;
   private readonly down: string;
+  private readonly right: string;
   /** Dernier mouvement et nombre de fois d'affilée (gestes). */
   private run = { move: "", count: 0 };
 
   /**
    * @param algs formule du joueur par PLL (pour compter les mouvements en trop) ; les PLL
    *   absentes sont reconnues quand même, comparées à la formule standard.
-   * @param holding tenue du joueur : ne sert qu'aux gestes (U4 / D4), pas à la reconnaissance.
+   * @param holding tenue du joueur : sert aux gestes (U4 / D4 / R4) et à l'affichage des
+   *   mouvements faits, pas à la reconnaissance.
    */
   constructor(
     private readonly algs: Readonly<Record<string, string>>,
@@ -108,16 +124,28 @@ export class PllRunTracker {
   ) {
     this.variants = cachedVariants ??= pllVariants();
     this.checkpoint = start;
-    const rotation = holdingRotation(holding);
-    this.up = switchFrame(physicalQuarters(`${rotation} U`)[0]);
-    this.down = switchFrame(physicalQuarters(`${rotation} D`)[0]);
+    this.rotation = holdingRotation(holding);
+    const face = (f: string) => switchFrame(physicalQuarters(`${this.rotation} ${f}`)[0]);
+    this.up = face("U");
+    this.down = face("D");
+    this.right = face("R");
+  }
+
+  /** Quarts de tour reçus depuis la dernière PLL (tentative en cours). */
+  get since(): number {
+    return this.attempt.length;
+  }
+
+  /** Mouvements des tentatives ratées puis défaites (nombre). */
+  get wasted(): number {
+    return this.wastedMoves.length;
   }
 
   /** À appeler après chaque quart de tour reçu : mouvement et état du cube (repère cube). */
   move(move: string, state: string): PllRunEvent | null {
-    this.since++;
+    this.attempt.push(move);
     this.run = this.run.move === move ? { move, count: this.run.count + 1 } : { move, count: 1 };
-    // Geste : quatre quarts de tour d'affilée de la face du haut ou du bas (le cube revient où il était).
+    // Geste : quatre quarts de tour d'affilée d'une même face (le cube revient où il était).
     if (this.run.count === 4) {
       const face = move[0];
       this.run = { move: "", count: 0 };
@@ -125,9 +153,9 @@ export class PllRunTracker {
         this.restart(state);
         return { kind: "reset" };
       }
-      if (face === this.down) {
-        this.since -= 4;
-        return { kind: "undo", done: this.done.pop() ?? null };
+      if (face === this.down || face === this.right) {
+        this.attempt.splice(-4);
+        return face === this.down ? { kind: "undo", done: this.done.pop() ?? null } : { kind: "end" };
       }
     }
     return this.check(state);
@@ -143,22 +171,45 @@ export class PllRunTracker {
     return this.since > 0 ? this.check(state) : null;
   }
 
+  /**
+   * Mouvements (repère cube) écrits comme le joueur les voit : deux quarts de tour identiques
+   * d'affilée → demi-tour (R R → R2), mais un aller-retour (F F') reste visible.
+   */
+  private toPlayer(moves: readonly string[]): string {
+    const player = moves.map((m) => playerMove(m, this.rotation));
+    const out: string[] = [];
+    for (let i = 0; i < player.length; i++) {
+      if (player[i] === player[i + 1]) {
+        out.push(`${player[i][0]}2`);
+        i++;
+      } else out.push(player[i]);
+    }
+    return out.join(" ");
+  }
+
   private check(state: string): PllRunEvent | null {
     if (state === this.checkpoint) {
       // Revenu à l'état d'avant : la tentative est défaite, on repart de zéro.
-      this.wasted += this.since;
-      this.since = 0;
+      this.wastedMoves.push(...this.attempt);
+      this.attempt = [];
       return { kind: "back" };
     }
     if (this.since < MIN_MOVES) return null;
     const v = this.variants.find((x) => applyPerm(this.checkpoint, x.perm) === state);
     if (!v) return null;
     const alg = this.algs[v.id] ?? PLL_CASES.find((c) => c.id === v.id)!.alg;
-    const done = { id: v.id, moves: this.since + this.wasted, extra: Math.max(0, this.since - v.auf - quarterCount(alg)) + this.wasted };
+    const done: PllDone = {
+      id: v.id,
+      moves: this.since + this.wasted,
+      extra: Math.max(0, this.since - v.auf - quarterCount(alg)) + this.wasted,
+      expected: alg,
+      played: this.toPlayer(this.attempt),
+      ...(this.wasted ? { failed: this.toPlayer(this.wastedMoves) } : {}),
+    };
     this.done.push(done);
     this.checkpoint = state;
-    this.since = 0;
-    this.wasted = 0;
+    this.attempt = [];
+    this.wastedMoves = [];
     this.run = { move: "", count: 0 };
     return { kind: "pll", done };
   }
@@ -166,8 +217,8 @@ export class PllRunTracker {
   /** Repartir de l'état actuel (après s'être emmêlé sans pouvoir revenir) : la tentative en cours est oubliée. */
   restart(state: string): void {
     this.checkpoint = state;
-    this.since = 0;
-    this.wasted = 0;
+    this.attempt = [];
+    this.wastedMoves = [];
     this.run = { move: "", count: 0 };
   }
 }

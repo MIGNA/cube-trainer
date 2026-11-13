@@ -509,3 +509,8 @@ button.pll-run-tile { flex: none; cursor: pointer; }
 .pll-run-badge .ok { background: var(--ok); }
 .pll-run-badge .ko { background: var(--err); color: #fff; }
 .row.segmented { display: flex; gap: 8px; }
+.pll-detail { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 4px 0 0; }
+.pll-detail dt { color: var(--muted); }
+.pll-detail dd { margin: 0; overflow-wrap: anywhere; }
+.pll-detail code { color: var(--text); }
+.pll-detail-block { margin: 10px 0; font-size: 0.85rem; }
