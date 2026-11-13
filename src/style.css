@@ -120,8 +120,8 @@ button.selected { outline: 2px solid var(--accent); }
 .scramble {
   margin: 0;
   font-family: ui-monospace, monospace;
-  font-size: 1.15rem;
-  line-height: 1.5;
+  font-size: 1.5rem;
+  line-height: 1.45;
   word-spacing: 0.15em;
 }
 .scramble.small { font-size: 0.9rem; color: var(--muted); }
@@ -207,7 +207,7 @@ body.timing #tabbar { display: none; }
 .scramble.dim { opacity: 0.4; }
 .step.done { color: var(--muted); opacity: 0.45; }
 .step.current { color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
-.corrections { margin: 6px 0 0; min-height: 1.2em; color: #ffcc4d; font-family: ui-monospace, monospace; }
+.corrections { margin: 6px 0 0; min-height: 1.2em; color: #ffcc4d; font-family: ui-monospace, monospace; font-size: 1.15rem; }
 
 .timer-zone .cancel { flex: none; margin-top: 24px; }
 
