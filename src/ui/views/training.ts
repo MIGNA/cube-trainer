@@ -26,6 +26,8 @@ import {
   type WarmupExercise,
 } from "../../training/warmup";
 import { algView } from "../alg-view";
+import { runPllRun } from "../pll-run";
+import { onHelperSolved } from "../solve-sheet";
 import { COLORS } from "../case-svg";
 import { h } from "../dom";
 
@@ -102,7 +104,9 @@ export const trainingView: View = {
       const holdingBox = h("div", { class: "holding" });
       const showHolding = () =>
         holdingBox.replaceChildren(
-          h("p", {}, h("strong", {}, "Tenue du cube : "), holdingLabel(holding)),
+          h("h2", {}, "Tenue du cube"),
+          h("p", { class: "muted small" }, "Pour le suivi avec le cube connecté : tiens-le toujours ainsi pendant les exercices."),
+          h("p", {}, holdingLabel(holding)),
           holdingPicker(holding, (next) => {
             holding = next;
             void setSetting("warmupHolding", next);
@@ -114,8 +118,49 @@ export const trainingView: View = {
         holding = saved;
         showHolding();
       });
+      // « Toutes mes PLL » : maîtrisées seules, ou avec celles à travailler (choix gardé).
+      const KEY = "toutes-pll-a-travailler";
+      let withLearning = false;
+      try {
+        withLearning = localStorage.getItem(KEY) === "1";
+      } catch {
+        /* stockage indisponible : choix par défaut */
+      }
+      const runInfo = h("p", { class: "muted small" }, "…");
+      const knownBtn = h("button", { class: "secondary" }, "Maîtrisées");
+      const allBtn = h("button", { class: "secondary" }, "+ à travailler");
+      const runStart = h("button", { onclick: () => void beginRun() }, "Commencer");
+      const showRunChoice = () => {
+        knownBtn.classList.toggle("selected", !withLearning);
+        allBtn.classList.toggle("selected", withLearning);
+        void pllChoices().then((plls) => {
+          const chosen = plls.filter((p) => withLearning || p.status === "known");
+          runInfo.textContent = chosen.length
+            ? `${chosen.length} PLL : ${chosen.map((p) => p.id).join(", ")}`
+            : "Aucune PLL dans ce choix : marque-les dans l'onglet Algos.";
+          runStart.disabled = chosen.length === 0;
+        });
+      };
+      const choose = (value: boolean) => {
+        withLearning = value;
+        try {
+          localStorage.setItem(KEY, value ? "1" : "0");
+        } catch {
+          /* ignoré */
+        }
+        showRunChoice();
+      };
+      knownBtn.onclick = () => choose(false);
+      allBtn.onclick = () => choose(true);
+      showRunChoice();
+      async function beginRun(): Promise<void> {
+        const chosen = (await pllChoices()).filter((p) => withLearning || p.status === "known");
+        cleanupSession = runPllRun(container, chosen, home);
+      }
+
       container.replaceChildren(
         h("h1", {}, "Entraînement"),
+        h("section", { class: "card" }, holdingBox),
         h(
           "section",
           { class: "card" },
@@ -128,11 +173,28 @@ export const trainingView: View = {
           h(
             "p",
             { class: "muted small" },
-            "Cube connecté : les répétitions sont comptées toutes seules, à condition de tenir le cube comme indiqué ci-dessous (toujours pareil, toute la séance). Sans cube : touche « Démarrer » puis « Terminé » pour chaque exercice.",
+            "Cube connecté : les répétitions sont comptées toutes seules, à condition de tenir le cube comme indiqué plus haut (toujours pareil, toute la séance). Sans cube : touche « Démarrer » puis « Terminé » pour chaque exercice.",
           ),
-          holdingBox,
           info,
           start,
+        ),
+        h(
+          "section",
+          { class: "card" },
+          h("h2", {}, "Toutes mes PLL"),
+          h(
+            "p",
+            {},
+            "Enchaîne toutes tes PLL, dans l'ordre que tu veux, autant de fois que tu veux. La liste de celles pas encore faites reste à l'écran. À la fin, les erreurs par PLL.",
+          ),
+          h(
+            "p",
+            { class: "muted small" },
+            "Cube connecté : chaque PLL est reconnue toute seule, quelle que soit ta façon de tenir le cube ; après une erreur, reviens à l'état d'avant la PLL et recommence. Sans cube : tu coches toi-même.",
+          ),
+          h("div", { class: "row segmented" }, knownBtn, allBtn),
+          runInfo,
+          runStart,
         ),
       );
       void pllChoices().then((plls) => {
@@ -351,6 +413,10 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
       nextTimer = window.setTimeout(() => finish(false), 700);
     }
   });
+  // Cube résolu avec le bouton « Résoudre » : l'exercice en cours repart de là.
+  const offSolved = onHelperSolved(() => {
+    if (tracker && !tracker.finished) startExercise(null);
+  });
   const unsubscribeStatus = cubeStatus.subscribe(() => {
     if (index < exercises.length && container.contains(title)) render();
   });
@@ -380,5 +446,6 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
     clearTimeout(resyncTimer);
     unsubscribeMoves();
     unsubscribeStatus();
+    offSolved();
   };
 }

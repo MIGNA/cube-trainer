@@ -5,6 +5,7 @@ import { requestPersistence } from "./storage/persistence";
 import { loadSolves } from "./storage/solves";
 import { mountCubeButton } from "./ui/cube-button";
 import { mountNotationButton } from "./ui/notation-sheet";
+import { mountSolveButton } from "./ui/solve-sheet";
 import { casesView } from "./ui/views/cases";
 import { settingsView } from "./ui/views/settings";
 import { solveView } from "./ui/views/solve";
@@ -35,6 +36,7 @@ async function main(): Promise<void> {
 
   mountCubeButton(document.getElementById("app")!);
   mountNotationButton(document.getElementById("app")!);
+  mountSolveButton(document.getElementById("app")!);
   startRouter(routes, document.getElementById("view")!, document.getElementById("tabbar")!);
 }
 

@@ -397,6 +397,25 @@ body.timing .cube-button { display: none; }
 }
 body.timing .notation-button { display: none; }
 
+/* Bouton Résoudre (à gauche du bouton Bluetooth), seulement quand le cube connecté est mélangé et immobile */
+.solve-button {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: max(62px, calc((100vw - 640px) / 2 + 62px));
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+body.timing .solve-button { display: none; }
+
 /* Panneau qui monte du bas, par-dessus la page */
 body.sheet-open { overflow: hidden; }
 .sheet-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.55); animation: sheet-fade 0.2s ease-out; }
@@ -475,3 +494,18 @@ body.sheet-open { overflow: hidden; }
 .color-pick { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 8px; border: 2px solid transparent; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
 .color-pick.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
 .warmup-extra code { color: var(--muted); font-style: italic; }
+.pll-run-count { font-weight: 600; margin: 6px 0 2px; }
+.pll-run-last { min-height: 1.3em; margin: 0 0 8px; }
+.pll-run-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.pll-run-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; background: var(--bg); color: var(--text); border: 2px solid var(--border); border-radius: 10px; font: inherit; }
+button.pll-run-tile { flex: none; cursor: pointer; }
+.pll-run-tile.done { border-color: var(--ok); }
+.pll-run-tile.done svg { opacity: 0.5; }
+.pll-run-tile.just { box-shadow: 0 0 0 2px var(--ok); }
+.pll-run-tile.just svg { opacity: 1; }
+.pll-run-name { display: flex; align-items: center; gap: 4px; }
+.pll-run-badge { display: inline-flex; gap: 3px; }
+.pll-run-badge span { min-width: 1.2em; padding: 0 4px; border-radius: 8px; font-size: 0.72rem; font-weight: 700; line-height: 1.4; color: #111; }
+.pll-run-badge .ok { background: var(--ok); }
+.pll-run-badge .ko { background: var(--err); color: #fff; }
+.row.segmented { display: flex; gap: 8px; }

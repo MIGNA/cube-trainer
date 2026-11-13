@@ -30,7 +30,7 @@ export interface TrainingSession {
   id?: number;
   /** Date de fin de la séance (ms depuis epoch). */
   date: number;
-  kind: "warmup";
+  kind: "warmup" | "pll-run";
   items: TrainingItem[];
 }
 
