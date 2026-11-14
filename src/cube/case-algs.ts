@@ -16,8 +16,17 @@ const ALTERNATIVES: Record<string, string[]> = {
   H: ["M2 U' M2 U2 M2 U' M2", "R2 U2 R U2 R2 U2 R2 U2 R U2 R2"],
   Ja: ["x R2 F R F' R U2 r' U r U2 x'"],
   Jb: ["R U2 R' U' R U2 L' U R' U' L"],
-  Nb: ["r' D' F r U' r' F' D r2 U r' U' r' F r F'"],
-  Ra: ["R U R' F' R U2 R' U2 R' F R U R U2 R'", "L U2 L' U2 L F' L' U' L U L F L2"],
+  Nb: [
+    "r' D' F r U' r' F' D r2 U r' U' r' F r F'",
+    // Miroir de la Na standard.
+    "L' U' L U' L' U' L F L' U' L U L F' L2 U L U2 L' U L",
+  ],
+  Ra: [
+    "R U R' F' R U2 R' U2 R' F R U R U2 R'",
+    // Miroirs des Rb.
+    "L U2 L' U2 L F' L' U' L U L F L2",
+    "L2 F' L' U' L' U L F L' U2 L U2 L'",
+  ],
   Rb: ["R' U2 R U2 R' F R U R' U' R' F' R2"],
   Ua: ["R U' R U R U R U' R' U' R2"],
   Ub: ["R2 U R U R' U' R' U' R' U R'"],

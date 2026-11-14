@@ -38,7 +38,7 @@ export interface TrainingItem {
   label: string;
   alg: string;
   reps: number;
-  /** Temps de l'exercice (premier mouvement → fin), en ms. */
+  /** Temps de l'exercice (premier mouvement → fin), en ms ; « Toutes mes PLL » : moyenne des passages sans erreur (0 = aucun). */
   timeMs: number;
   /** Fait avec le cube connecté (sinon chrono à la main). */
   connected: boolean;

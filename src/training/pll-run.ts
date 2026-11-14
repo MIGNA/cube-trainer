@@ -39,6 +39,8 @@ export interface PllDone {
   played?: string;
   /** Tentatives ratées puis défaites avant (mêmes conventions). */
   failed?: string;
+  /** Temps d'exécution : premier mouvement → mouvement qui termine la PLL (ms). */
+  timeMs?: number;
 }
 
 /**
@@ -110,6 +112,8 @@ export class PllRunTracker {
   private readonly right: string;
   /** Dernier mouvement et nombre de fois d'affilée (gestes). */
   private run = { move: "", count: 0 };
+  /** Heure du premier mouvement de la tentative en cours (temps d'exécution). */
+  private startedAt: number | null = null;
 
   /**
    * @param algs formule du joueur par PLL (pour compter les mouvements en trop) ; les PLL
@@ -141,8 +145,12 @@ export class PllRunTracker {
     return this.wastedMoves.length;
   }
 
-  /** À appeler après chaque quart de tour reçu : mouvement et état du cube (repère cube). */
-  move(move: string, state: string): PllRunEvent | null {
+  /**
+   * À appeler après chaque quart de tour reçu : mouvement et état du cube (repère cube),
+   * heure du mouvement en ms (sans heure, pas de temps d'exécution).
+   */
+  move(move: string, state: string, now?: number): PllRunEvent | null {
+    if (this.attempt.length === 0) this.startedAt = now ?? null;
     this.attempt.push(move);
     this.run = this.run.move === move ? { move, count: this.run.count + 1 } : { move, count: 1 };
     // Geste : quatre quarts de tour d'affilée d'une même face (le cube revient où il était).
@@ -155,11 +163,16 @@ export class PllRunTracker {
       }
       if (face === this.down || face === this.right) {
         this.attempt.splice(-4);
+        if (this.attempt.length === 0) this.startedAt = null;
         return face === this.down ? { kind: "undo", done: this.done.pop() ?? null } : { kind: "end" };
       }
     }
-    return this.check(state);
+    this.lastAt = now ?? null;
+    return this.check(state, this.lastAt);
   }
+
+  /** Heure du dernier mouvement reçu (pour un état recalé sans mouvement). */
+  private lastAt: number | null = null;
 
   /** Annule la dernière PLL reconnue (mauvaise reconnaissance) ; la reconnaissance continue d'ici. */
   undo(): PllDone | null {
@@ -168,7 +181,7 @@ export class PllRunTracker {
 
   /** État renvoyé par le cube sans mouvement (modèle recalé) : on revérifie. */
   observe(state: string): PllRunEvent | null {
-    return this.since > 0 ? this.check(state) : null;
+    return this.since > 0 ? this.check(state, this.lastAt) : null;
   }
 
   /**
@@ -187,11 +200,12 @@ export class PllRunTracker {
     return out.join(" ");
   }
 
-  private check(state: string): PllRunEvent | null {
+  private check(state: string, now: number | null): PllRunEvent | null {
     if (state === this.checkpoint) {
       // Revenu à l'état d'avant : la tentative est défaite, on repart de zéro.
       this.wastedMoves.push(...this.attempt);
       this.attempt = [];
+      this.startedAt = null;
       return { kind: "back" };
     }
     if (this.since < MIN_MOVES) return null;
@@ -205,10 +219,12 @@ export class PllRunTracker {
       expected: alg,
       played: this.toPlayer(this.attempt),
       ...(this.wasted ? { failed: this.toPlayer(this.wastedMoves) } : {}),
+      ...(now !== null && this.startedAt !== null ? { timeMs: now - this.startedAt } : {}),
     };
     this.done.push(done);
     this.checkpoint = state;
     this.attempt = [];
+    this.startedAt = null;
     this.wastedMoves = [];
     this.run = { move: "", count: 0 };
     return { kind: "pll", done };
@@ -218,6 +234,7 @@ export class PllRunTracker {
   restart(state: string): void {
     this.checkpoint = state;
     this.attempt = [];
+    this.startedAt = null;
     this.wastedMoves = [];
     this.run = { move: "", count: 0 };
   }
@@ -233,16 +250,27 @@ export interface PllStat {
   /** Mouvements en trop au total (cube connecté). */
   extra: number;
   moves: number;
+  /** Temps d'exécution moyen des passages sans erreur (ms), null si aucun. */
+  cleanTimeMs: number | null;
 }
 
 /** Bilan par PLL : les plus souvent ratées d'abord. */
 export function pllStats(done: readonly PllDone[]): PllStat[] {
   const by = new Map<string, PllStat>();
+  const times = new Map<string, number[]>();
   for (const d of done) {
-    const s = by.get(d.id) ?? { id: d.id, count: 0, clean: 0, withErrors: 0, extra: 0, moves: 0 };
+    const s = by.get(d.id) ?? { id: d.id, count: 0, clean: 0, withErrors: 0, extra: 0, moves: 0, cleanTimeMs: null };
     s.count++;
     if (d.extra > 0) s.withErrors++;
-    else s.clean++;
+    else {
+      s.clean++;
+      if (d.timeMs !== undefined) {
+        const t = times.get(d.id) ?? [];
+        t.push(d.timeMs);
+        times.set(d.id, t);
+        s.cleanTimeMs = t.reduce((a, b) => a + b, 0) / t.length;
+      }
+    }
     s.extra += d.extra;
     s.moves += d.moves;
     by.set(d.id, s);

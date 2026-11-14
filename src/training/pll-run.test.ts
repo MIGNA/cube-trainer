@@ -74,7 +74,7 @@ describe("toutes mes PLL", () => {
       { id: "T", moves: moves.length + 2, extra: 2, expected: t, played: "R U R' F F' U' R' F R2 U' R' U' R U R' F'" },
     ]);
     play(tracker, state, moves);
-    expect(pllStats(tracker.done)).toEqual([{ id: "T", count: 2, clean: 1, withErrors: 1, extra: 2, moves: 2 * moves.length + 2 }]);
+    expect(pllStats(tracker.done)).toEqual([{ id: "T", count: 2, clean: 1, withErrors: 1, extra: 2, moves: 2 * moves.length + 2, cleanTimeMs: null }]);
     // Une erreur énorme ne pèse pas plus qu'une petite : on trie par passages ratés.
     const stats = pllStats([
       { id: "Ja", moves: 80, extra: 60 },
@@ -133,5 +133,31 @@ describe("toutes mes PLL", () => {
   it("une simple suite de triggers n'est pas prise pour une PLL", () => {
     const tracker = new PllRunTracker({}, scrambled);
     expect(play(tracker, scrambled, cube("R U R' U' R U R' U' R U R' U'")).found).toEqual([]);
+  });
+
+  it("temps d'exécution : premier → dernier mouvement ; moyenne sur les passages sans erreur", () => {
+    const tracker = new PllRunTracker({}, SOLVED);
+    let state = SOLVED;
+    let t = 1000;
+    const run = (moves: string[], step: number) => {
+      let e = null;
+      for (const m of moves) {
+        state = applyMove(state, m);
+        e = tracker.move(m, state, t);
+        t += step;
+      }
+      return e;
+    };
+    t += 5000; // pause de reconnaissance : pas comptée
+    const tperm = cube(alg("T"));
+    const first = run(tperm, 100);
+    expect(first?.kind === "pll" && first.done.timeMs).toBe((tperm.length - 1) * 100);
+    // Second passage, avec une erreur : son temps n'entre pas dans la moyenne.
+    const second = run(["R", "R'", ...tperm], 300);
+    expect(second?.kind === "pll" && second.done.extra).toBe(2);
+    const third = run(tperm, 200);
+    expect(third?.kind).toBe("pll");
+    const [stat] = pllStats(tracker.done);
+    expect(stat.cleanTimeMs).toBe(((tperm.length - 1) * 100 + (tperm.length - 1) * 200) / 2);
   });
 });

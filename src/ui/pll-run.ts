@@ -5,6 +5,7 @@
 import { cubeFacelets, cubeStatus, onCubeEvent } from "../ble/cube-service";
 import { caseView } from "../cube/case-diagram";
 import { PLL_CASES } from "../cube/cases";
+import { formatTime } from "../timer/format";
 import type { TrainingItem } from "../storage/db";
 import { addTrainingSession } from "../storage/training";
 import { PllRunTracker, pllStats, type PllDone } from "../training/pll-run";
@@ -14,6 +15,8 @@ import { h } from "./dom";
 import { onHelperSolved } from "./solve-sheet";
 
 const pllName = (id: string) => `${id}-perm`;
+/** Temps en secondes, virgule française : « 2,14 s ». */
+const seconds = (ms: number | null) => (ms === null ? "–" : `${formatTime(ms).replace(".", ",")} s`);
 
 /** Déroule l'exercice ; renvoie la fonction de nettoyage. */
 export function runPllRun(container: HTMLElement, choices: PllChoice[], holding: Holding, onQuit: () => void): () => void {
@@ -119,7 +122,8 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
     if (justDone && lastDone) {
       const known = order.some((c) => c.id === lastDone.id) ? "" : " (pas dans ta liste)";
       if (tracker) {
-        const head = `${pllName(lastDone.id)}${known} · ${lastDone.extra ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop` : "sans erreur"}`;
+        const time = !lastDone.extra && lastDone.timeMs !== undefined ? ` · ${seconds(lastDone.timeMs)}` : "";
+        const head = `${pllName(lastDone.id)}${known} · ${lastDone.extra ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop` : "sans erreur"}${time}`;
         last.replaceChildren(head, ...(lastDone.extra ? [detail(lastDone)] : []));
       } else last.textContent = `${pllName(lastDone.id)} cochée.`;
     } else if (!justDone) last.textContent = "";
@@ -138,7 +142,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
         label: s.id,
         alg: algs[s.id] ?? PLL_CASES.find((c) => c.id === s.id)!.alg,
         reps: s.count,
-        timeMs: 0,
+        timeMs: s.cleanTimeMs ?? 0,
         connected: tracker !== null,
         expectedMoves: s.moves - s.extra,
         ...(tracker ? { moves: s.moves } : {}),
@@ -157,14 +161,14 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
               "table",
               { class: "warmup-table" },
               tracker
-                ? h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Sans erreur"), h("th", {}, "Avec erreurs"))
+                ? h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Sans erreur"), h("th", {}, "Avec erreurs"), h("th", {}, "Temps moyen"))
                 : h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Fois")),
               ...stats.map((s) =>
                 h(
                   "tr",
                   { class: tracker && s.withErrors > 0 ? "slowest" : "" },
                   h("td", {}, pllName(s.id)),
-                  ...(tracker ? [h("td", {}, String(s.clean)), h("td", {}, String(s.withErrors))] : [h("td", {}, String(s.count))]),
+                  ...(tracker ? [h("td", {}, String(s.clean)), h("td", {}, String(s.withErrors)), h("td", {}, seconds(s.cleanTimeMs))] : [h("td", {}, String(s.count))]),
                 ),
               ),
             ),
@@ -181,7 +185,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
           ? h(
               "p",
               { class: "muted small" },
-              "Avec erreurs = au moins un mouvement en trop par rapport à ta formule (onglet Algos ; les AUF ne comptent pas), ou une tentative ratée puis défaite. Les PLL les plus souvent ratées sont en haut.",
+              "Avec erreurs = au moins un mouvement en trop par rapport à ta formule (onglet Algos ; les AUF ne comptent pas), ou une tentative ratée puis défaite. Temps moyen = exécution (du premier au dernier mouvement), sur les passages sans erreur seulement. Les PLL les plus souvent ratées sont en haut.",
             )
           : null,
       ),
@@ -191,7 +195,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
 
   const unsubscribe = onCubeEvent((event) => {
     if (!tracker || (event.type !== "move" && event.type !== "facelets")) return;
-    const e = event.type === "move" ? tracker.move(event.move, cubeFacelets.get()!) : tracker.observe(cubeFacelets.get()!);
+    const e = event.type === "move" ? tracker.move(event.move, cubeFacelets.get()!, performance.now()) : tracker.observe(cubeFacelets.get()!);
     if (import.meta.env.DEV) {
       const what = event.type === "move" ? event.move : "état du cube";
       const info = e ? ` → ${e.kind === "pll" ? `${e.done.id} (${e.done.extra} en trop)` : e.kind}` : "";
