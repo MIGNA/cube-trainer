@@ -514,3 +514,5 @@ button.pll-run-tile { flex: none; cursor: pointer; }
 .pll-detail dd { margin: 0; overflow-wrap: anywhere; }
 .pll-detail code { color: var(--text); }
 .pll-detail-block { margin: 10px 0; font-size: 0.85rem; }
+.record-panel { margin-top: 12px; }
+.record-panel .setup-actions { gap: 8px; margin-top: 0; }

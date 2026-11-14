@@ -12,6 +12,7 @@ import { caseKind, checkCaseAlg, type CaseDef } from "../../cube/cases";
 import { getSetting, setSetting, type CaseStatus } from "../../storage/settings";
 import { caseSvg } from "../case-svg";
 import { setupPanel } from "../setup-panel";
+import { recordPanel } from "../record-panel";
 import { openNotation } from "../notation-sheet";
 import { h } from "../dom";
 import { algView } from "../alg-view";
@@ -278,6 +279,12 @@ function mountCase(container: HTMLElement, c: CaseDef): () => void {
   }) as HTMLInputElement;
   input.spellcheck = false;
   const message = h("p", { class: "status" });
+  // Formule enregistrée avec le cube : placée dans le champ, à vérifier (et corriger) avant l'ajout.
+  const record = recordPanel(c, (alg) => {
+    input.value = alg;
+    message.classList.remove("ok", "err");
+    message.textContent = "Formule enregistrée. Corrige-la si besoin (r, M, rotations…), puis touche « Vérifier ».";
+  });
   function addCustom(): void {
     const result = checkCaseAlg(c, input.value);
     message.classList.toggle("ok", result.ok);
@@ -287,6 +294,7 @@ function mountCase(container: HTMLElement, c: CaseDef): () => void {
       return;
     }
     message.textContent = "Algo vérifié et choisi ✓";
+    record.reset();
     input.value = "";
     void saveAlgs(withMain(list(), result.alg));
   }
@@ -347,6 +355,7 @@ function mountCase(container: HTMLElement, c: CaseDef): () => void {
         h("button", { type: "submit" }, "Vérifier"),
       ),
       message,
+      record.el,
     ),
   );
   refresh();
@@ -356,5 +365,8 @@ function mountCase(container: HTMLElement, c: CaseDef): () => void {
     algs = a;
     refresh();
   });
-  return () => setup.destroy();
+  return () => {
+    setup.destroy();
+    record.destroy();
+  };
 }
