@@ -124,6 +124,8 @@ button.selected { outline: 2px solid var(--accent); }
   line-height: 1.45;
   word-spacing: 0.15em;
 }
+.scramble-preview-box { display: flex; justify-content: center; margin: 8px 0 2px; }
+.scramble-preview { width: 150px; height: auto; display: block; }
 .scramble.small { font-size: 0.9rem; color: var(--muted); }
 
 .timer-zone {

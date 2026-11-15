@@ -11,6 +11,7 @@ import { getSetting } from "../../storage/settings";
 import { addSolve, deleteSolve, setPenalty, solves } from "../../storage/solves";
 import { formatTime } from "../../timer/format";
 import { generateScramble } from "../../timer/scramble";
+import { scramblePreview } from "../scramble-preview";
 import { averageOf, effectiveTime } from "../../timer/stats";
 import { INSPECTION_DNF_MS, INSPECTION_MS, TimerMachine } from "../../timer/timer-machine";
 import { analyzeSolve } from "../../cube/cfop";
@@ -54,6 +55,8 @@ export const timerView: View = {
     const modeBadge = h("span", { class: "mode-badge" });
     const scrambleEl = h("p", { class: "scramble" }, "Génération du mélange…");
     const correctionsEl = h("p", { class: "corrections" });
+    // Aperçu du cube mélangé (patron), pour vérifier son mélange d'un coup d'œil.
+    const previewEl = h("div", { class: "scramble-preview-box" });
     const newScrambleBtn = h("button", { class: "link", onclick: () => void nextScramble() }, "Nouveau mélange ↻");
     const display = h("div", { class: "time-display" }, "0.00");
     const hint = h("p", { class: "timer-hint muted" });
@@ -76,7 +79,7 @@ export const timerView: View = {
     const zone = h("div", { class: "timer-zone" }, display, hint, cancelBtn);
 
     container.append(
-      h("div", { class: "scramble-box" }, modeBadge, scrambleEl, correctionsEl, newScrambleBtn),
+      h("div", { class: "scramble-box" }, modeBadge, scrambleEl, correctionsEl, previewEl, newScrambleBtn),
       zone,
       h(
         "div",
@@ -109,6 +112,7 @@ export const timerView: View = {
       const s = await generateScramble();
       if (disposed) return;
       scramble = s;
+      previewEl.replaceChildren(scramblePreview(scramble));
       smart.setScramble(scramble, cubeFacelets.get());
       render();
     }
