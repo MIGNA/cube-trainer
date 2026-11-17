@@ -24,7 +24,7 @@ const routes: Route[] = [
   { path: "algos", label: "Algos", icon: "📚", view: casesView },
   { path: "stats", label: "Stats", icon: "📊", view: statsView },
   { path: "reglages", label: "Réglages", icon: "⚙️", view: settingsView },
-  { path: "solve", tab: "stats", view: solveView },
+  { path: "solve", tab: (params) => (params[1] === "chrono" ? "chrono" : "stats"), view: solveView },
 ];
 
 async function main(): Promise<void> {

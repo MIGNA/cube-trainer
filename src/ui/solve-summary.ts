@@ -5,7 +5,7 @@
 
 import { FACE_COLORS, type SolveAnalysis, type StepSplit } from "../cube/cfop";
 import { OPPOSITE, type Face } from "../cube/facelets";
-import { PHASE_LABELS, PHASE_OF, fluency, phases } from "../cube/reconstruction";
+import { PHASE_LABELS, PHASE_OF, fluency, phases, type PhaseSummary } from "../cube/reconstruction";
 import type { SolveMove } from "../storage/db";
 import { h } from "./dom";
 
@@ -67,6 +67,15 @@ export function stepBlock(analysis: SolveAnalysis, step: StepSplit): HTMLElement
   );
 }
 
+/** Cas sous la barre : « 27 », « Jb », « skip », « ? » (non reconnu) ; rien pour croix / F2L. */
+function phaseCase(analysis: SolveAnalysis, phase: PhaseSummary): string | null {
+  const result = phase.id === "oll" ? analysis.oll : phase.id === "pll" ? analysis.pll : undefined;
+  if (result === undefined) return null;
+  if (result === "skip") return phase.durationMs > 0 ? "skip" : null; // durée nulle : « skip » déjà écrit au-dessus
+  if (result === null) return "?";
+  return result.replace("OLL ", "");
+}
+
 /** Ligne de synthèse + barre des étapes + légende. */
 export function solveSummary(analysis: SolveAnalysis, moves: readonly SolveMove[]): HTMLElement {
   const flu = fluency(moves);
@@ -95,7 +104,7 @@ export function solveSummary(analysis: SolveAnalysis, moves: readonly SolveMove[
           { class: "phase-track" },
           ...analysis.steps.filter((s) => PHASE_OF[s.id] === phase.id).map((s) => stepBlock(analysis, s)),
         ),
-        h("small", {}, PHASE_LABELS[phase.id]),
+        h("small", {}, PHASE_LABELS[phase.id], ...(phaseCase(analysis, phase) ? [" ", h("span", { class: "phase-case" }, phaseCase(analysis, phase))] : [])),
       ),
     ),
   );

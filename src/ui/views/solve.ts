@@ -63,7 +63,15 @@ function stepsTable(analysis: SolveAnalysis): HTMLElement {
       // Repère coloré à gauche : la couleur de l'étape.
       h("th", { class: "step-name", style: `--paint:${stepPaint(analysis, s, "tb")}` }, STEP_LABELS[s.id], sub),
       h("td", { class: "bar-cell" }, skipped ? null : miniBar(s)),
-      h("td", { class: "num" }, skipped ? "–" : sec(s.durationMs)),
+      // Temps total, et en petit la part reconnaissance / exécution (sauf sans reconnaissance, ex. croix).
+      h(
+        "td",
+        { class: "num" },
+        skipped ? "–" : sec(s.durationMs),
+        !skipped && s.recognitionMs > 0
+          ? h("small", { class: "tps-exec" }, `reco ${sec(s.recognitionMs)}`, h("br", {}), `exéc ${sec(s.executionMs)}`)
+          : null,
+      ),
       h("td", { class: "num" }, String(s.moves)),
       // TPS sur le temps total de l'étape, et en petit sur l'exécution seule (sans la reconnaissance).
       h(
@@ -263,7 +271,9 @@ export const solveView: View = {
   title: "Solve",
   mount(container, params) {
     const id = Number(params[0]);
-    const back = h("a", { href: "#/stats", class: "back" }, "‹ Historique");
+    // Ouvert depuis le chrono (#/solve/<id>/chrono) : on y revient ; sinon vers l'historique.
+    const returnTo = params[1] === "chrono" ? "#/chrono" : "#/stats";
+    const back = h("a", { href: returnTo, class: "back" }, params[1] === "chrono" ? "‹ Chrono" : "‹ Historique");
     const header = h("section", { class: "card solve-header" });
     container.append(back, header);
 
@@ -317,7 +327,7 @@ export const solveView: View = {
               class: "secondary danger",
               onclick: async () => {
                 await deleteSolve(id);
-                location.hash = "#/stats";
+                location.hash = returnTo;
               },
             },
             "Supprimer",

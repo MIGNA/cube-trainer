@@ -227,7 +227,9 @@ body.timing #tabbar { display: none; }
 .phase-bar { display: flex; gap: 6px; }
 .phase { flex-basis: 0; min-width: 3.2em; display: flex; flex-direction: column; gap: 6px; }
 .phase strong { font-family: ui-monospace, monospace; font-size: 0.95rem; }
-.phase small { color: var(--muted); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.phase small { color: var(--muted); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+/* Cas OLL / PLL sous la barre : casse d'origine (Jb, pas JB), bien lisible. */
+.phase small .phase-case { text-transform: none; letter-spacing: 0; color: var(--text, inherit); font-weight: 600; }
 .phase-track { display: flex; gap: 2px; height: 12px; border-radius: 5px; overflow: hidden; background: #262d37; }
 .seg { position: relative; flex-basis: 0; }
 /* Reconnaissance : hachures posées sur le début du bloc, visibles quelle que soit la couleur. */

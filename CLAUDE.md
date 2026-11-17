@@ -24,7 +24,7 @@ Web Bluetooth exige HTTPS ou localhost ; test sur téléphone via `chrome://insp
 
 ## Architecture
 
-- `src/app/` : `signal.ts` (état réactif minimal, `subscribe` appelle immédiatement) et `router.ts` (routeur par hash ; une `View` a `mount(container, params)` qui renvoie une fonction de nettoyage — toujours se désabonner des signaux/événements dedans). `#/solve/12` → route `solve`, params `["12"]` ; une route sans `label` n'a pas d'onglet et indique via `tab` l'onglet à surligner.
+- `src/app/` : `signal.ts` (état réactif minimal, `subscribe` appelle immédiatement) et `router.ts` (routeur par hash ; une `View` a `mount(container, params)` qui renvoie une fonction de nettoyage — toujours se désabonner des signaux/événements dedans). `#/solve/12` → route `solve`, params `["12"]` (`#/solve/12/chrono` = ouvert depuis le chrono, retour et onglet Chrono) ; une route sans `label` n'a pas d'onglet et indique via `tab` l'onglet à surligner.
 - `src/ui/dom.ts` : helper `h(tag, props, ...children)` ; `onxxx` = écouteurs, autres props = propriétés DOM ou attributs.
 - `src/ble/` : `smart-cube.ts` définit l'interface `SmartCube` / `CubeEvent`, la seule dont dépend le reste de l'appli. `gan-cube.ts` adapte gan-web-bluetooth, `keyboard-cube.ts` est un faux cube clavier pour le dev sur PC. `cube-service.ts` est le point d'accès unique (`cubeStatus`, `onCubeEvent`, connexion/déconnexion, MAC mémorisée).
 - `src/timer/` : logique pure du chrono. `timer-machine.ts` (états idle/inspecting/holding/ready/running, temps injecté), `stats.ts` (moyennes WCA ; **Infinity = DNF**, null = indisponible), `format.ts` (tronqué au centième), `scramble.ts` (mélanges, voir plus bas).

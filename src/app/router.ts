@@ -18,7 +18,8 @@ export interface Route {
   /** Onglet de la barre du bas ; une route sans onglet (page de détail) indique `tab` à surligner. */
   label?: string;
   icon?: string;
-  tab?: string;
+  /** Peut dépendre des paramètres (ex. solve ouvert depuis le chrono → onglet Chrono). */
+  tab?: string | ((params: string[]) => string);
 }
 
 export function startRouter(routes: Route[], outlet: HTMLElement, nav: HTMLElement): void {
@@ -40,7 +41,7 @@ export function startRouter(routes: Route[], outlet: HTMLElement, nav: HTMLEleme
   function render(): void {
     const [path, ...params] = location.hash.replace(/^#\/?/, "").split("/");
     const route = routes.find((r) => r.path === path) ?? routes[0];
-    const tab = route.tab ?? route.path;
+    const tab = (typeof route.tab === "function" ? route.tab(params) : route.tab) ?? route.path;
 
     cleanup?.();
     outlet.replaceChildren();

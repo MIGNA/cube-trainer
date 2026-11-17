@@ -291,7 +291,7 @@ export const timerView: View = {
         const analysis = solve?.moves?.length ? analyzeSolve(solve.scramble, solve.moves) : null;
         summaryLink.replaceChildren();
         if (solve && analysis) {
-          summaryLink.href = `#/solve/${solve.id}`;
+          summaryLink.href = `#/solve/${solve.id}/chrono`; // retour vers le chrono
           summaryLink.append(solveSummary(analysis, solve.moves!), h("span", { class: "more" }, "Voir l'analyse ›"));
         }
       }
