@@ -124,6 +124,14 @@ button.selected { outline: 2px solid var(--accent); }
   line-height: 1.45;
   word-spacing: 0.15em;
 }
+.session { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.session summary { cursor: pointer; }
+.session table { margin-top: 8px; }
+.case-times-table td small { display: block; }
+.case-times-list { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; }
+.case-times-list li { padding: 4px 0; border-bottom: 1px solid var(--border, #2a3039); }
+.case-times-list a { color: inherit; text-decoration: none; }
+.case-times-list .err-mark { color: var(--err); }
 .scramble-preview-box { display: flex; justify-content: center; margin: 8px 0 2px; }
 .scramble-preview { width: 150px; height: auto; display: block; }
 .scramble.small { font-size: 0.9rem; color: var(--muted); }
@@ -301,6 +309,51 @@ a.case-card { text-decoration: none; }
 .case-filters button.selected { outline: none; background: var(--accent); color: #fff; }
 .case-filters .filter-count { opacity: 0.7; }
 .case-count { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+
+/* Mode sélection (marquer plusieurs cas d'un coup). */
+.selection-toggle { margin: 0 0 12px; }
+.selection-toggle button { padding: 6px 12px; font-size: 0.8rem; }
+.selection-toggle button.selected { background: var(--accent); color: #fff; }
+.check-all { margin: 0 0 8px; padding: 6px 12px; font-size: 0.8rem; }
+.case-check {
+  display: none;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  font-size: 0.75rem;
+  line-height: 16px;
+  color: transparent;
+  z-index: 1;
+}
+.selecting .case-check { display: block; }
+.case-card.checked { background: rgba(80, 140, 255, 0.18); }
+.case-card.checked .case-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+.selection-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+}
+.selection-bar .row { margin: 0; gap: 6px; }
+.selection-bar .row button { padding: 8px 10px; font-size: 0.85rem; }
+.selection-bar .status-learning:not(:disabled) { border-color: var(--warn, #f5a524); color: var(--warn, #f5a524); }
+.selection-bar .status-known:not(:disabled) { border-color: var(--ok, #3ccf7a); color: var(--ok, #3ccf7a); }
+.selection-count { font-size: 0.9rem; }
+.selecting { padding-bottom: 120px; }
 
 .case-head { display: flex; align-items: center; gap: 16px; }
 .case-head h1 { margin: 0; }

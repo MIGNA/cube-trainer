@@ -27,6 +27,7 @@ import {
 } from "../../training/warmup";
 import { algView } from "../alg-view";
 import { runPllRun } from "../pll-run";
+import { trainingHistoryCard } from "../training-history";
 import { onHelperSolved } from "../solve-sheet";
 import { COLORS } from "../case-svg";
 import { h } from "../dom";
@@ -196,6 +197,7 @@ export const trainingView: View = {
           runInfo,
           runStart,
         ),
+        trainingHistoryCard(),
       );
       void pllChoices().then((plls) => {
         const known = plls.filter((p) => p.status === "known").length;

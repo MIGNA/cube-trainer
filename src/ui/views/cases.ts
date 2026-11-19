@@ -12,6 +12,7 @@ import { caseKind, checkCaseAlg, type CaseDef } from "../../cube/cases";
 import { getSetting, setSetting, type CaseStatus } from "../../storage/settings";
 import { caseSvg } from "../case-svg";
 import { setupPanel } from "../setup-panel";
+import { caseTimesCard } from "../case-times";
 import { recordPanel } from "../record-panel";
 import { openNotation } from "../notation-sheet";
 import { h } from "../dom";
@@ -82,19 +83,19 @@ export const casesView: View = {
     if (params[0] === "notation") {
       // Lien direct : on revient à l'adresse du catalogue et on ouvre la notation par-dessus.
       history.replaceState(history.state, "", "#/algos");
-      mountCatalogue(container);
+      const cleanup = mountCatalogue(container);
       openNotation();
-      return;
+      return cleanup;
     }
     const c = params[0] ? findCase(decodeURIComponent(params[0])) : undefined;
     if (c) return mountCase(container, c);
-    mountCatalogue(container);
+    return mountCatalogue(container);
   },
 };
 
 // --- Catalogue ------------------------------------------------------------
 
-function mountCatalogue(container: HTMLElement): void {
+function mountCatalogue(container: HTMLElement): () => void {
   let statuses: Record<string, CaseStatus> = {};
   let algs: Record<string, string[]> = {};
   const prefs = loadPrefs();
@@ -102,12 +103,28 @@ function mountCatalogue(container: HTMLElement): void {
   const save = () => savePrefs({ ...prefs, statuses: [...active] });
   const status = (id: string): CaseStatus => statuses[id] ?? "new";
 
+  // Mode sélection : toucher un cas le coche (au lieu d'ouvrir sa fiche) ; une barre en bas
+  // applique un état à tous les cas cochés d'un coup.
+  let selecting = false;
+  const selected = new Set<string>();
+
   const cards = new Map<string, HTMLElement>();
   function card(c: CaseDef): HTMLElement {
     const sub = subtitleOf(c);
     const el = h(
       "a",
-      { class: "case-card", href: algoHref(c.id) },
+      {
+        class: "case-card",
+        href: algoHref(c.id),
+        onclick: (e: Event) => {
+          if (!selecting) return;
+          e.preventDefault();
+          if (selected.has(c.id)) selected.delete(c.id);
+          else selected.add(c.id);
+          refreshSelection();
+        },
+      },
+      h("span", { class: "case-check", "aria-hidden": "true" }, "✓"),
       caseSvg(caseView(c.alg), caseKind(c)),
       h("strong", {}, titleOf(c)),
       sub ? h("small", { class: "muted" }, sub) : null,
@@ -148,14 +165,76 @@ function mountCatalogue(container: HTMLElement): void {
     const count = h("span", { class: "case-count" });
     const body = h("div", {});
     const empty = h("p", { class: "muted small" }, "Aucun cas avec ces filtres.");
-    const el = h("details", { class: "card case-block" }, h("summary", {}, h("h2", {}, title, count)), body, empty) as HTMLDetailsElement;
+    // « Tout cocher » : seulement les cas affichés (filtres compris).
+    const checkAll = h("button", { class: "secondary check-all", onclick: () => toggleBlock(block) }, "Tout cocher");
+    const el = h("details", { class: "card case-block" }, h("summary", {}, h("h2", {}, title, count)), checkAll, body, empty) as HTMLDetailsElement;
     el.open = !prefs.closed.includes(b);
     el.addEventListener("toggle", () => {
       prefs.closed = el.open ? prefs.closed.filter((x) => x !== b) : [...new Set([...prefs.closed, b])];
       save();
     });
-    return { b, el, title, count, body, empty, cases: [] as CaseDef[] };
+    const block = { b, el, title, count, body, empty, checkAll, cases: [] as CaseDef[] };
+    return block;
   });
+  type BlockView = (typeof blocks)[number];
+
+  const visibleIds = (block: BlockView) => block.cases.filter((c) => !cards.get(c.id)!.hidden).map((c) => c.id);
+  function toggleBlock(block: BlockView): void {
+    const ids = visibleIds(block);
+    const all = ids.length > 0 && ids.every((id) => selected.has(id));
+    for (const id of ids) {
+      if (all) selected.delete(id);
+      else selected.add(id);
+    }
+    refreshSelection();
+  }
+
+  const selectBtn = h("button", { class: "secondary", onclick: () => setSelecting(!selecting) }, "Sélectionner");
+  const selCount = h("span", { class: "selection-count" });
+  const applyBtns = STATUSES.map((st) =>
+    h("button", { class: `secondary status-${st}`, onclick: () => void applyStatus(st) }, LABEL[st].replace(/^./, (x) => x.toUpperCase())),
+  );
+  const selectionBar = h(
+    "div",
+    { class: "selection-bar" },
+    selCount,
+    h("div", { class: "row" }, ...applyBtns),
+    h("button", { class: "link", onclick: () => setSelecting(false) }, "Annuler"),
+  );
+
+  function setSelecting(on: boolean): void {
+    selecting = on;
+    selected.clear();
+    selectBtn.textContent = on ? "Annuler la sélection" : "Sélectionner";
+    selectBtn.classList.toggle("selected", on);
+    refreshSelection();
+  }
+
+  function refreshSelection(): void {
+    container.classList.toggle("selecting", selecting);
+    selectionBar.hidden = !selecting;
+    for (const [id, el] of cards) el.classList.toggle("checked", selecting && selected.has(id));
+    for (const block of blocks) {
+      block.checkAll.hidden = !selecting || prefs.set === "beginner";
+      const ids = visibleIds(block);
+      block.checkAll.textContent = ids.length > 0 && ids.every((id) => selected.has(id)) ? "Tout décocher" : "Tout cocher";
+    }
+    selCount.textContent = selected.size === 0 ? "Touche les cas à changer" : `${selected.size} cas → `;
+    for (const b of applyBtns) b.disabled = selected.size === 0;
+  }
+
+  async function applyStatus(st: CaseStatus): Promise<void> {
+    // Relu juste avant d'écrire : ne pas écraser un changement fait ailleurs.
+    const next = { ...(await getSetting("caseStatus")) };
+    for (const id of selected) {
+      if (st === "new") delete next[id];
+      else next[id] = st;
+    }
+    await setSetting("caseStatus", next);
+    statuses = next;
+    setSelecting(false);
+    refresh();
+  }
   // Débutant : simple synthèse de la méthode, sans état ni filtres.
   const beginner = beginnerSummary();
   const intro = h(
@@ -172,6 +251,8 @@ function mountCatalogue(container: HTMLElement): void {
     beginner.hidden = !isBeginner;
     intro.hidden = isBeginner;
     statusRow.hidden = isBeginner;
+    selectBtn.hidden = isBeginner;
+    if (isBeginner && selecting) setSelecting(false);
     for (const block of blocks) {
       const groups = set[block.b];
       block.cases = groups.flatMap((g) => g.cases);
@@ -219,6 +300,7 @@ function mountCatalogue(container: HTMLElement): void {
       btn.classList.toggle("selected", active.has(f));
       n.textContent = `(${all.filter((c) => status(c.id) === f).length})`;
     }
+    refreshSelection(); // les filtres changent les cas visibles (« Tout cocher »)
   }
 
   container.append(
@@ -226,8 +308,10 @@ function mountCatalogue(container: HTMLElement): void {
     intro,
     h("div", { class: "case-filters" }, ...setBtns),
     statusRow,
+    h("div", { class: "row selection-toggle" }, selectBtn),
     beginner,
     ...blocks.map((b) => b.el),
+    selectionBar,
   );
   build();
   refresh();
@@ -238,6 +322,8 @@ function mountCatalogue(container: HTMLElement): void {
     algs = a;
     refresh();
   });
+  // Le conteneur est partagé par toutes les pages : ne pas y laisser la classe du mode sélection.
+  return () => container.classList.remove("selecting");
 }
 
 // --- Fiche d'un cas -------------------------------------------------------
@@ -342,6 +428,8 @@ function mountCase(container: HTMLElement, c: CaseDef): () => void {
       h("p", { class: "muted small" }, "Le premier (★) est celui que tu entraînes."),
       mine,
     ),
+    // Temps par situation : pas pour les croix du 2-look (jamais reconnues en solve ni en exercice).
+    ...(caseKind(c) === "eo" ? [] : [caseTimesCard(c.id)]),
     suggestionsCard,
     h(
       "section",

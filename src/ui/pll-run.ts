@@ -2,7 +2,7 @@
 // Cube connecté : chaque PLL est reconnue toute seule (training/pll-run.ts) et les
 // mouvements en trop sont comptés. Sans cube : on touche la case de la PLL faite.
 
-import { cubeFacelets, cubeStatus, onCubeEvent } from "../ble/cube-service";
+import { cubeFacelets, cubeStatus, onCubeEvent, resyncCube } from "../ble/cube-service";
 import { caseView } from "../cube/case-diagram";
 import { PLL_CASES } from "../cube/cases";
 import { formatTime } from "../timer/format";
@@ -69,6 +69,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
       onclick: () => {
         const state = cubeFacelets.get();
         if (tracker && state) tracker.restart(state);
+        rebaseFromCube();
         last.textContent = "Nouveau départ : l'état actuel du cube. La tentative en cours est oubliée.";
       },
     },
@@ -132,6 +133,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
 
   let saved = false;
   async function end(): Promise<void> {
+    clearTimeout(resyncTimer);
     unsubscribe();
     offSolved();
     const list = done();
@@ -147,7 +149,8 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
         expectedMoves: s.moves - s.extra,
         ...(tracker ? { moves: s.moves } : {}),
       }));
-      await addTrainingSession({ date: Date.now(), kind: "pll-run", items });
+      const passes = tracker ? list.map((d) => ({ id: d.id, moves: d.moves, extra: d.extra, ...(d.timeMs !== undefined ? { timeMs: Math.round(d.timeMs) } : {}) })) : undefined;
+      await addTrainingSession({ date: Date.now(), kind: "pll-run", items, ...(passes ? { passes } : {}) });
     }
     const missing = order.filter((c) => !stats.some((s) => s.id === c.id));
     container.replaceChildren(
@@ -193,17 +196,48 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
     );
   }
 
+  /**
+   * Pas de PLL reconnue alors que le joueur s'est arrêté : un mouvement a pu se perdre en
+   * route (Bluetooth) et le modèle ne colle plus au vrai cube. On redemande son état au cube.
+   */
+  let resyncTimer = 0;
+  const RESYNC_MS = 1000;
+  let lastMoveAt = 0;
+  /** Nouveau départ demandé : il se fera sur l'état réel renvoyé par le cube (le modèle a pu dériver). */
+  let rebasePending = false;
+  function rebaseFromCube(): void {
+    rebasePending = true;
+    void resyncCube();
+  }
+
   const unsubscribe = onCubeEvent((event) => {
     if (!tracker || (event.type !== "move" && event.type !== "facelets")) return;
-    const e = event.type === "move" ? tracker.move(event.move, cubeFacelets.get()!, performance.now()) : tracker.observe(cubeFacelets.get()!);
+    const now = performance.now();
+    if (event.type === "facelets" && rebasePending) {
+      rebasePending = false;
+      tracker.restart(cubeFacelets.get()!);
+      if (import.meta.env.DEV) console.log(`[toutes les PLL] nouveau départ sur l'état du cube n°${event.serial ?? "?"}`);
+      return;
+    }
+    if (event.type === "move") rebasePending = false; // déjà reparti : le joueur a continué
+    const e = event.type === "move" ? tracker.move(event.move, cubeFacelets.get()!, now) : tracker.observe(cubeFacelets.get()!);
     if (import.meta.env.DEV) {
-      const what = event.type === "move" ? event.move : "état du cube";
+      // Écart depuis le mouvement précédent : pour repérer une face qui hésite (U U' très rapprochés).
+      const what = event.type === "move" ? `${event.move} (+${Math.round(now - lastMoveAt)} ms, n°${event.serial ?? "?"})` : `état du cube n°${event.serial ?? "?"}`;
       const info = e ? ` → ${e.kind === "pll" ? `${e.done.id} (${e.done.extra} en trop)` : e.kind}` : "";
       console.log(`[toutes les PLL] ${what} · ${tracker.since} depuis la dernière PLL${info}`);
     }
+    if (event.type === "move") {
+      lastMoveAt = now;
+      clearTimeout(resyncTimer);
+      if (!e && tracker.since >= 6) resyncTimer = window.setTimeout(() => void resyncCube(), RESYNC_MS);
+    }
     if (e?.kind === "pll") update(e.done.id);
     else if (e?.kind === "back") last.textContent = "Revenu à l'état d'avant : vas-y, la PLL sera reconnue.";
-    else if (e?.kind === "reset") last.textContent = "U4 : on repart d'ici.";
+    else if (e?.kind === "reset") {
+      rebaseFromCube();
+      last.textContent = "U4 : on repart d'ici.";
+    }
     else if (e?.kind === "end") void end();
     else if (e?.kind === "undo") {
       update(null);
@@ -240,6 +274,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
   update(null);
 
   return () => {
+    clearTimeout(resyncTimer);
     unsubscribe();
     offSolved();
   };

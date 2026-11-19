@@ -32,6 +32,19 @@ export interface TrainingSession {
   date: number;
   kind: "warmup" | "pll-run";
   items: TrainingItem[];
+  /** « Toutes mes PLL » : chaque PLL faite, dans l'ordre (absent dans les séances plus anciennes). */
+  passes?: TrainingPass[];
+}
+
+/** Un passage d'une PLL dans « Toutes mes PLL ». */
+export interface TrainingPass {
+  id: string;
+  /** Temps d'exécution (ms), si mesuré. */
+  timeMs?: number;
+  /** Quarts de tour reçus. */
+  moves: number;
+  /** Mouvements en trop (0 = sans erreur). */
+  extra: number;
 }
 
 export interface TrainingItem {
