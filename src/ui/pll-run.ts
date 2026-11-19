@@ -12,14 +12,22 @@ import { PllRunTracker, pllStats, type PllDone } from "../training/pll-run";
 import type { Holding, PllChoice } from "../training/warmup";
 import { caseSvg } from "./case-svg";
 import { h } from "./dom";
+import { flashName } from "./flash";
 import { onHelperSolved } from "./solve-sheet";
+import type { SessionControl } from "./views/training";
 
 const pllName = (id: string) => `${id}-perm`;
 /** Temps en secondes, virgule française : « 2,14 s ». */
 const seconds = (ms: number | null) => (ms === null ? "–" : `${formatTime(ms).replace(".", ",")} s`);
 
-/** Déroule l'exercice ; renvoie la fonction de nettoyage. */
-export function runPllRun(container: HTMLElement, choices: PllChoice[], holding: Holding, onQuit: () => void): () => void {
+/** Déroule l'exercice dans `container` (mis en pause quand on quitte l'onglet). */
+export function runPllRun(
+  container: HTMLElement,
+  choices: PllChoice[],
+  holding: Holding,
+  onQuit: () => void,
+  onEnded: () => void,
+): SessionControl {
   const connected = cubeStatus.get().state === "connected" && cubeFacelets.get() !== null;
   const algs = Object.fromEntries(choices.map((c) => [c.id, c.alg]));
   const tracker = connected ? new PllRunTracker(algs, cubeFacelets.get()!, holding) : null;
@@ -133,6 +141,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
 
   let saved = false;
   async function end(): Promise<void> {
+    onEnded();
     clearTimeout(resyncTimer);
     unsubscribe();
     offSolved();
@@ -205,13 +214,16 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
   let lastMoveAt = 0;
   /** Nouveau départ demandé : il se fera sur l'état réel renvoyé par le cube (le modèle a pu dériver). */
   let rebasePending = false;
+  /** Onglet quitté : mouvements ignorés ; état du cube à ce moment-là. */
+  let paused = false;
+  let pausedState: string | null = null;
   function rebaseFromCube(): void {
     rebasePending = true;
     void resyncCube();
   }
 
   const unsubscribe = onCubeEvent((event) => {
-    if (!tracker || (event.type !== "move" && event.type !== "facelets")) return;
+    if (paused || !tracker || (event.type !== "move" && event.type !== "facelets")) return;
     const now = performance.now();
     if (event.type === "facelets" && rebasePending) {
       rebasePending = false;
@@ -232,7 +244,11 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
       clearTimeout(resyncTimer);
       if (!e && tracker.since >= 6) resyncTimer = window.setTimeout(() => void resyncCube(), RESYNC_MS);
     }
-    if (e?.kind === "pll") update(e.done.id);
+    if (e?.kind === "pll") {
+      update(e.done.id);
+      // Nom de la PLL qui grossit et s'efface : vert sans erreur, orange avec erreurs.
+      flashName(pllName(e.done.id), e.done.extra > 0 ? "ko" : "ok");
+    }
     else if (e?.kind === "back") last.textContent = "Revenu à l'état d'avant : vas-y, la PLL sera reconnue.";
     else if (e?.kind === "reset") {
       rebaseFromCube();
@@ -248,7 +264,7 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
   // Cube résolu avec le bouton « Résoudre » : on repart de là.
   const offSolved = onHelperSolved(() => {
     const state = cubeFacelets.get();
-    if (!tracker || !state) return;
+    if (paused || !tracker || !state) return;
     tracker.restart(state);
     last.textContent = "Cube résolu : nouveau départ.";
   });
@@ -273,9 +289,26 @@ export function runPllRun(container: HTMLElement, choices: PllChoice[], holding:
   );
   update(null);
 
-  return () => {
-    clearTimeout(resyncTimer);
-    unsubscribe();
-    offSolved();
+  return {
+    pause() {
+      paused = true;
+      pausedState = cubeFacelets.get();
+      clearTimeout(resyncTimer);
+      rebasePending = false;
+    },
+    resume() {
+      paused = false;
+      const state = cubeFacelets.get();
+      // Cube tourné pendant l'absence : la tentative en cours est oubliée, on repart d'ici.
+      if (tracker && state && state !== pausedState) {
+        tracker.restart(state);
+        last.textContent = "Reprise : on repart de l'état actuel du cube.";
+      }
+    },
+    dispose() {
+      clearTimeout(resyncTimer);
+      unsubscribe();
+      offSolved();
+    },
   };
 }

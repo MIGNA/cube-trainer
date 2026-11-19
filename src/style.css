@@ -104,6 +104,18 @@ button:disabled { opacity: 0.4; cursor: default; }
 }
 .tab-icon { font-size: 1.3rem; line-height: 1; filter: grayscale(1) opacity(0.7); }
 .tab.active { color: var(--accent); }
+/* Séance d'entraînement en pause : point sur l'onglet. */
+.tab { position: relative; }
+body.training-busy .tab[href="#/entrainement"]::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: calc(50% + 12px);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
 .tab.active .tab-icon { filter: none; }
 
 button.link { flex: none; background: none; color: var(--accent); padding: 6px 0; font-size: 0.85rem; }
@@ -573,3 +585,33 @@ button.pll-run-tile { flex: none; cursor: pointer; }
 .pll-detail-block { margin: 10px 0; font-size: 0.85rem; }
 .record-panel { margin-top: 12px; }
 .record-panel .setup-actions { gap: 8px; margin-top: 0; }
+
+/* Réussite d'une PLL (Toutes mes PLL) : le nom grossit puis s'efface. */
+.flash-name {
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  z-index: 50;
+  pointer-events: none;
+  font-size: 3rem;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--ok, #3ccf7a);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  animation: flash-name 1.5s ease-out forwards;
+}
+.flash-name.ko { color: var(--warn, #f5a524); }
+@keyframes flash-name {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash-name { animation-name: flash-name-fade; }
+  @keyframes flash-name-fade {
+    0%, 60% { opacity: 1; transform: translate(-50%, -50%); }
+    100% { opacity: 0; transform: translate(-50%, -50%); }
+  }
+}

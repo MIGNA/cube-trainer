@@ -91,15 +91,43 @@ async function pllChoices(): Promise<PllChoice[]> {
   });
 }
 
+/** Séance lancée : mise en pause quand on quitte l'onglet, reprise au retour. */
+export interface SessionControl {
+  pause(): void;
+  resume(): void;
+  dispose(): void;
+}
+
+/**
+ * Séance en cours, gardée entre deux passages sur l'onglet (son affichage `root` est
+ * simplement détaché de la page). `ended` : bilan affiché, plus rien à reprendre.
+ */
+let active: { root: HTMLElement; ctl: SessionControl; ended: boolean } | null = null;
+
+/** Point sur l'onglet Entraînement tant qu'une séance attend. */
+const markBusy = (busy: boolean) => document.body.classList.toggle("training-busy", busy);
+
 export const trainingView: View = {
   title: "Entraînement",
   mount(container) {
-    let cleanupSession: (() => void) | null = null;
     let holding: Holding = DEFAULT_HOLDING;
 
+    function launch(run: (root: HTMLElement, onEnded: () => void) => SessionControl): void {
+      const root = h("div", {});
+      container.replaceChildren(root);
+      const session = { root, ctl: null as unknown as SessionControl, ended: false };
+      active = session;
+      markBusy(true);
+      session.ctl = run(root, () => {
+        session.ended = true;
+        markBusy(false);
+      });
+    }
+
     function home(): void {
-      cleanupSession?.();
-      cleanupSession = null;
+      active?.ctl.dispose();
+      active = null;
+      markBusy(false);
       const info = h("p", { class: "muted small" }, "…");
       const start = h("button", { onclick: () => void begin() }, "Commencer l'échauffement");
       const holdingBox = h("div", { class: "holding" });
@@ -156,7 +184,7 @@ export const trainingView: View = {
       showRunChoice();
       async function beginRun(): Promise<void> {
         const chosen = (await pllChoices()).filter((p) => withLearning || p.status === "known");
-        cleanupSession = runPllRun(container, chosen, holding, home);
+        launch((root, onEnded) => runPllRun(root, chosen, holding, home, onEnded));
       }
 
       container.replaceChildren(
@@ -211,16 +239,33 @@ export const trainingView: View = {
 
     async function begin(): Promise<void> {
       const exercises = drawWarmup(await pllChoices());
-      cleanupSession = runSession(container, exercises, holding, home);
+      launch((root, onEnded) => runSession(root, exercises, holding, home, onEnded));
     }
 
-    home();
-    return () => cleanupSession?.();
+    if (active && !active.ended) {
+      // Séance en pause : on la remet telle quelle.
+      container.replaceChildren(active.root);
+      active.ctl.resume();
+    } else home();
+    return () => {
+      if (!active) return;
+      if (active.ended) {
+        // Bilan déjà vu : la séance est finie, rien à garder.
+        active.ctl.dispose();
+        active = null;
+      } else active.ctl.pause();
+    };
   },
 };
 
-/** Déroule une séance ; renvoie la fonction de nettoyage. */
-function runSession(container: HTMLElement, exercises: WarmupExercise[], holding: Holding, onQuit: () => void): () => void {
+/** Déroule une séance d'échauffement dans `container`. */
+function runSession(
+  container: HTMLElement,
+  exercises: WarmupExercise[],
+  holding: Holding,
+  onQuit: () => void,
+  onEnded: () => void,
+): SessionControl {
   const results: TrainingItem[] = [];
   let index = 0;
   let tracker: WarmupTracker | null = null;
@@ -232,6 +277,9 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   let saved = false;
   /** Mouvements reçus après la fin de l'exercice (en trop), repère cube. */
   let afterEnd: string[] = [];
+  /** Onglet quitté : les mouvements ne comptent plus ; état du cube à ce moment-là. */
+  let paused = false;
+  let pausedState: string | null = null;
 
   const isConnected = () => cubeStatus.get().state === "connected" && cubeFacelets.get() !== null;
 
@@ -343,6 +391,7 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   }
 
   async function endSession(): Promise<void> {
+    onEnded();
     clearInterval(ticker);
     clearTimeout(nextTimer);
     clearTimeout(resyncTimer);
@@ -388,7 +437,7 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   }
 
   const unsubscribeMoves = onCubeEvent((event) => {
-    if (!tracker || (event.type !== "move" && event.type !== "facelets")) return;
+    if (paused || !tracker || (event.type !== "move" && event.type !== "facelets")) return;
     if (tracker.finished) {
       if (event.type === "move") afterEnd.push(event.move); // en trop : à défaire au début de l'exercice suivant
       return;
@@ -417,10 +466,10 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   });
   // Cube résolu avec le bouton « Résoudre » : l'exercice en cours repart de là.
   const offSolved = onHelperSolved(() => {
-    if (tracker && !tracker.finished) startExercise(null);
+    if (!paused && tracker && !tracker.finished) startExercise(null);
   });
   const unsubscribeStatus = cubeStatus.subscribe(() => {
-    if (index < exercises.length && container.contains(title)) render();
+    if (!paused && index < exercises.length && container.contains(title)) render();
   });
 
   container.replaceChildren(
@@ -442,12 +491,34 @@ function runSession(container: HTMLElement, exercises: WarmupExercise[], holding
   if (exercises.length) startExercise(null);
   else void endSession();
 
-  return () => {
-    clearInterval(ticker);
-    clearTimeout(nextTimer);
-    clearTimeout(resyncTimer);
-    unsubscribeMoves();
-    unsubscribeStatus();
-    offSolved();
+  return {
+    pause() {
+      paused = true;
+      pausedState = cubeFacelets.get();
+      clearInterval(ticker);
+      clearTimeout(nextTimer);
+      clearTimeout(resyncTimer);
+    },
+    resume() {
+      paused = false;
+      if (index >= exercises.length || !container.contains(title)) return;
+      if (tracker?.finished) return finish(false); // exercice fini juste avant de partir
+      // Cube tourné entre-temps (ou branché / débranché), ou chrono à la main lancé :
+      // l'exercice reprend de zéro, depuis l'état actuel du cube.
+      const moved = tracker ? !isConnected() || cubeFacelets.get() !== pausedState : isConnected() || manualStart !== null;
+      if (moved) startExercise(null);
+      else {
+        ticker = window.setInterval(tick, 100);
+        render();
+      }
+    },
+    dispose() {
+      clearInterval(ticker);
+      clearTimeout(nextTimer);
+      clearTimeout(resyncTimer);
+      unsubscribeMoves();
+      unsubscribeStatus();
+      offSolved();
+    },
   };
 }
