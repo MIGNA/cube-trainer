@@ -552,6 +552,12 @@ body.sheet-open { overflow: hidden; }
 .warmup-table th, .warmup-table td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border); }
 .warmup-table th { color: var(--muted); font-weight: 600; }
 .warmup-table tr.slowest td { color: var(--err); }
+/* Réussite d'une PLL (bilan Toutes mes PLL). */
+.warmup-table td.rate { font-weight: 600; }
+.warmup-table td.rate-ok { color: var(--ok, #3ccf7a); }
+.warmup-table td.rate-warn { color: var(--warn, #f5a524); }
+.warmup-table td.rate-bad { color: var(--err); }
+.warmup-table td.rate-few { color: var(--muted); font-weight: 400; }
 .warmup-alg .mv[data-progress="done"] { color: var(--ok); }
 .warmup-alg .mv[data-progress="current"] { background: color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 4px; padding: 0 2px; }
 .warmup-alg .mv[data-progress="todo"] { color: var(--muted); }
@@ -583,6 +589,15 @@ button.pll-run-tile { flex: none; cursor: pointer; }
 .pll-detail dd { margin: 0; overflow-wrap: anywhere; }
 .pll-detail code { color: var(--text); }
 .pll-detail-block { margin: 10px 0; font-size: 0.85rem; }
+/* Proposition d'enregistrer une formule faite plusieurs fois. */
+.pll-run-proposal { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 10px; font-size: 0.9rem; }
+.pll-run-proposal p { margin: 0 0 6px; }
+.pll-run-proposal code { overflow-wrap: anywhere; }
+/* Mouvements faits : en trop = gras rouge, AUF = discret. */
+.pll-detail .move-extra, .pll-error-body .move-extra { color: var(--err); font-weight: 700; }
+.pll-error-body p { margin: 2px 0; }
+.pll-error-body code { overflow-wrap: anywhere; }
+.pll-detail .move-auf { color: var(--muted); }
 .record-panel { margin-top: 12px; }
 .record-panel .setup-actions { gap: 8px; margin-top: 0; }
 

@@ -4,14 +4,23 @@
 
 import { cubeFacelets, cubeStatus, onCubeEvent, resyncCube } from "../ble/cube-service";
 import { caseView } from "../cube/case-diagram";
-import { PLL_CASES } from "../cube/cases";
+import { myAlgs } from "../cube/case-algs";
+import { PLL_CASES, checkCaseAlg } from "../cube/cases";
+import { getSetting, setSetting } from "../storage/settings";
 import { formatTime } from "../timer/format";
 import type { TrainingItem } from "../storage/db";
 import { addTrainingSession } from "../storage/training";
-import { PllRunTracker, pllStats, type PllDone } from "../training/pll-run";
+import { PllRunTracker, groupErrors, pllStats, successRate, type ErrorGroup, type PllDone } from "../training/pll-run";
 import type { Holding, PllChoice } from "../training/warmup";
 import { caseSvg } from "./case-svg";
 import { h } from "./dom";
+import type { PllStat } from "../training/pll-run";
+
+/** Case « Réussite » : pourcentage coloré (gris si trop peu de passages). */
+function rateCell(s: PllStat): HTMLElement {
+  const { rate, tone } = successRate(s);
+  return h("td", { class: `rate rate-${tone}` }, `${Math.round(rate * 100)} %`);
+}
 import { flashName } from "./flash";
 import { onHelperSolved } from "./solve-sheet";
 import type { SessionControl } from "./views/training";
@@ -29,7 +38,7 @@ export function runPllRun(
   onEnded: () => void,
 ): SessionControl {
   const connected = cubeStatus.get().state === "connected" && cubeFacelets.get() !== null;
-  const algs = Object.fromEntries(choices.map((c) => [c.id, c.alg]));
+  const algs = Object.fromEntries(choices.map((c) => [c.id, c.algs ?? [c.alg]]));
   const tracker = connected ? new PllRunTracker(algs, cubeFacelets.get()!, holding) : null;
   const manual: PllDone[] = [];
   const done = () => tracker?.done ?? manual;
@@ -37,6 +46,62 @@ export function runPllRun(
 
   const counter = h("p", { class: "pll-run-count" });
   const last = h("div", { class: "muted small pll-run-last" });
+  /** Bandeau « enregistrer cette formule ? » (même formule inconnue faite 2 fois de suite). */
+  const proposal = h("div", { class: "pll-run-proposal", hidden: true });
+  /** Dernière formule inconnue par PLL et nombre de fois d'affilée. */
+  const others = new Map<string, { alg: string; n: number }>();
+  /** Formules déjà refusées (on ne les repropose pas pendant la séance). */
+  const declined = new Set<string>();
+
+  function noteOther(d: PllDone): void {
+    if (!d.other) {
+      others.delete(d.id);
+      return;
+    }
+    const prev = others.get(d.id);
+    const n = prev?.alg === d.other ? prev.n + 1 : 1;
+    others.set(d.id, { alg: d.other, n });
+    if (n < 2 || declined.has(`${d.id}|${d.other}`)) return;
+    const c = PLL_CASES.find((x) => x.id === d.id)!;
+    const check = checkCaseAlg(c, d.other);
+    if (!check.ok) return; // aucune tenue où elle résout bien le cas
+    const alg = check.alg;
+    const close = () => {
+      proposal.hidden = true;
+      proposal.replaceChildren();
+    };
+    const save = async (main: boolean) => {
+      const saved = await getSetting("caseAlgs");
+      const list = myAlgs(c, saved).filter((a) => a !== alg);
+      await setSetting("caseAlgs", { ...saved, [c.id]: main ? [alg, ...list] : [...list, alg] });
+      tracker?.addAlg(c.id, alg, main);
+      others.delete(c.id);
+      proposal.replaceChildren(`Enregistrée ${main ? "comme ta formule" : "dans tes algos"} pour ${pllName(c.id)}.`);
+      window.setTimeout(close, 3000);
+    };
+    proposal.hidden = false;
+    proposal.replaceChildren(
+      h("p", {}, `Tu as fait ${n} fois ${pllName(c.id)} avec cette formule. C'est ta nouvelle formule ?`),
+      h("p", {}, h("code", {}, alg)),
+      h(
+        "div",
+        { class: "row" },
+        h("button", { onclick: () => void save(true) }, "Ma formule"),
+        h("button", { class: "secondary", onclick: () => void save(false) }, "Ajouter à mes algos"),
+        h(
+          "button",
+          {
+            class: "secondary",
+            onclick: () => {
+              declined.add(`${d.id}|${d.other}`);
+              close();
+            },
+          },
+          "Non merci",
+        ),
+      ),
+    );
+  }
   const tiles = new Map<string, HTMLElement>();
   const grid = h(
     "div",
@@ -90,12 +155,64 @@ export function runPllRun(
     return h(
       "dl",
       { class: "pll-detail" },
-      h("dt", {}, "Attendu"),
-      h("dd", {}, h("code", {}, d.expected ?? "")),
-      h("dt", {}, "Fait"),
-      h("dd", {}, h("code", {}, d.played ?? "")),
-      ...(d.failed ? [h("dt", {}, "Raté avant"), h("dd", {}, h("code", {}, d.failed))] : []),
+      ...(d.other
+        ? [h("dt", {}, "Ta formule"), h("dd", {}, h("code", {}, d.expected ?? "")), h("dt", {}, "Fait"), h("dd", {}, h("code", {}, d.other))]
+        : [h("dt", {}, "Attendu"), h("dd", {}, h("code", {}, d.expected ?? ""))]),
+      ...(d.other ? [] : [h("dt", {}, "Fait")]),
+      ...(d.other ? [] : [h(
+        "dd",
+        {},
+        h(
+          "code",
+          {},
+          ...(d.marks
+            ? d.marks.flatMap((m, i) => [
+                ...(i ? [" "] : []),
+                m.kind === "ok" ? m.text : h("span", { class: `move-${m.kind}`, title: m.kind === "auf" ? "AUF" : "en trop" }, m.text),
+              ])
+            : [d.played ?? ""]),
+        ),
+      )]),
+      ...(d.falseStart
+        ? [h("dt", {}, "Faux départ"), h("dd", { class: "muted", title: "Défait avant la formule : ne compte pas en erreur" }, h("code", {}, d.falseStart))]
+        : []),
     );
+  }
+
+  /** Une erreur du bilan : la formule avec l'erreur en gras rouge, ou l'autre formule faite. */
+  function errorBlock(g: ErrorGroup): HTMLElement {
+    const times = g.count > 1 ? ` · ${g.count} fois` : "";
+    const body = g.other
+      ? [h("p", {}, "Autre formule que la tienne :"), h("code", {}, g.other)]
+      : g.marks
+        ? [h("code", {}, ...g.marks.flatMap((m, i) => [...(i ? [" "] : []), m.kind === "ok" ? m.text : h("span", { class: "move-extra" }, m.text)]))]
+        : [h("p", {}, "Mouvements en trop :"), h("code", {}, g.expected)];
+    return h("div", { class: "pll-detail-block" }, h("strong", {}, `${pllName(g.id)}${times}`), h("div", { class: "pll-error-body" }, ...body));
+  }
+
+  /** « 3 autres erreurs (1 fois chacune) », « 1 erreur (1 fois) »… */
+  function isolatedLabel(n: number, others: boolean): string {
+    const s = n > 1 ? "s" : "";
+    return `${n}${others ? ` autre${s}` : ""} erreur${s} (${n > 1 ? "1 fois chacune" : "1 fois"})`;
+  }
+
+  /** Bilan : erreurs faites au moins 2 fois, les autres repliées. */
+  function errorsSection(list: readonly PllDone[]): HTMLElement[] {
+    const { frequent, isolated } = groupErrors(list);
+    if (frequent.length === 0 && isolated.length === 0) return [];
+    return [
+      ...(frequent.length ? [h("h3", {}, "Erreurs fréquentes"), ...frequent.map(errorBlock)] : []),
+      ...(isolated.length
+        ? [
+            h(
+              "details",
+              { class: "session" },
+              h("summary", {}, isolatedLabel(isolated.length, frequent.length > 0)),
+              ...isolated.map(errorBlock),
+            ),
+          ]
+        : []),
+    ];
   }
 
   function undoLast(): void {
@@ -132,8 +249,12 @@ export function runPllRun(
       const known = order.some((c) => c.id === lastDone.id) ? "" : " (pas dans ta liste)";
       if (tracker) {
         const time = !lastDone.extra && lastDone.timeMs !== undefined ? ` · ${seconds(lastDone.timeMs)}` : "";
-        const head = `${pllName(lastDone.id)}${known} · ${lastDone.extra ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop` : "sans erreur"}${time}`;
-        last.replaceChildren(head, ...(lastDone.extra ? [detail(lastDone)] : []));
+        const verdict = lastDone.other
+          ? "autre formule que la tienne (compte en erreur)"
+          : lastDone.extra
+            ? `${lastDone.extra} mouvement${lastDone.extra > 1 ? "s" : ""} en trop`
+            : "sans erreur";
+        last.replaceChildren(`${pllName(lastDone.id)}${known} · ${verdict}${time}`, ...(lastDone.extra || lastDone.other ? [detail(lastDone)] : []));
       } else last.textContent = `${pllName(lastDone.id)} cochée.`;
     } else if (!justDone) last.textContent = "";
     undoBtn.hidden = done().length === 0;
@@ -151,7 +272,7 @@ export function runPllRun(
       saved = true;
       const items: TrainingItem[] = stats.map((s) => ({
         label: s.id,
-        alg: algs[s.id] ?? PLL_CASES.find((c) => c.id === s.id)!.alg,
+        alg: algs[s.id]?.[0] ?? PLL_CASES.find((c) => c.id === s.id)!.alg,
         reps: s.count,
         timeMs: s.cleanTimeMs ?? 0,
         connected: tracker !== null,
@@ -173,31 +294,24 @@ export function runPllRun(
               "table",
               { class: "warmup-table" },
               tracker
-                ? h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Sans erreur"), h("th", {}, "Avec erreurs"), h("th", {}, "Temps moyen"))
+                ? h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Réussite"), h("th", {}, "Sans erreur"), h("th", {}, "Avec erreurs"), h("th", {}, "Temps moyen"))
                 : h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Fois")),
               ...stats.map((s) =>
                 h(
                   "tr",
-                  { class: tracker && s.withErrors > 0 ? "slowest" : "" },
+                  {},
                   h("td", {}, pllName(s.id)),
-                  ...(tracker ? [h("td", {}, String(s.clean)), h("td", {}, String(s.withErrors)), h("td", {}, seconds(s.cleanTimeMs))] : [h("td", {}, String(s.count))]),
+                  ...(tracker ? [rateCell(s), h("td", {}, String(s.clean)), h("td", {}, String(s.withErrors)), h("td", {}, seconds(s.cleanTimeMs))] : [h("td", {}, String(s.count))]),
                 ),
               ),
             ),
         missing.length ? h("p", { class: "muted small" }, `Pas faites : ${missing.map((c) => c.id).join(", ")}.`) : null,
-        ...(tracker && list.some((d) => d.extra > 0)
-          ? [
-              h("h3", {}, "Passages avec erreurs"),
-              ...list
-                .filter((d) => d.extra > 0)
-                .map((d) => h("div", { class: "pll-detail-block" }, h("strong", {}, `${pllName(d.id)} · ${d.extra} en trop`), detail(d))),
-            ]
-          : []),
+        ...(tracker ? errorsSection(list) : []),
         tracker
           ? h(
               "p",
               { class: "muted small" },
-              "Avec erreurs = au moins un mouvement en trop par rapport à ta formule (onglet Algos ; les AUF ne comptent pas), ou une tentative ratée puis défaite. Temps moyen = exécution (du premier au dernier mouvement), sur les passages sans erreur seulement. Les PLL les plus souvent ratées sont en haut.",
+              "Avec erreurs = au moins un mouvement en trop par rapport à ta formule (onglet Algos ; les AUF ne comptent pas), ou une tentative ratée puis défaite. Temps moyen = exécution (du premier au dernier mouvement), sur les passages sans erreur seulement. Réussite = part des passages sans erreur : vert à partir de 90 %, orange de 70 à 89 %, rouge en dessous (gris s'il y a moins de 3 passages). Les PLL les moins réussies sont en haut.",
             )
           : null,
       ),
@@ -246,6 +360,7 @@ export function runPllRun(
     }
     if (e?.kind === "pll") {
       update(e.done.id);
+      noteOther(e.done);
       // Nom de la PLL qui grossit et s'efface : vert sans erreur, orange avec erreurs.
       flashName(pllName(e.done.id), e.done.extra > 0 ? "ko" : "ok");
     }
@@ -283,6 +398,7 @@ export function runPllRun(
       ),
       counter,
       last,
+      proposal,
       grid,
       h("div", { class: "row" }, ...(tracker ? [restartBtn] : []), undoBtn, endBtn),
     ),

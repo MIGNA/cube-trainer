@@ -90,6 +90,8 @@ export function triggerExercises(): WarmupExercise[] {
 export interface PllChoice {
   id: string;
   alg: string;
+  /** Toutes les formules du joueur pour ce cas (la première = `alg`). */
+  algs?: string[];
   status: "known" | "learning";
 }
 
@@ -131,7 +133,7 @@ export function drawWarmup(plls: readonly PllChoice[], random: () => number = Ma
 
 // Les 24 façons de tenir le cube (face du haut × face de devant), en rotations depuis
 // le repère joueur (jaune en haut, vert devant).
-const HOLDINGS = ["", "x", "x2", "x'", "z", "z'"].flatMap((a) => ["", "y", "y2", "y'"].map((b) => `${a} ${b}`.trim()));
+export const HOLDINGS = ["", "x", "x2", "x'", "z", "z'"].flatMap((a) => ["", "y", "y2", "y'"].map((b) => `${a} ${b}`.trim()));
 
 /**
  * Façon de tenir le cube, choisie par le joueur : couleur du haut et de devant, données

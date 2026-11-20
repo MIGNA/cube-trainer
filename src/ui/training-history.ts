@@ -4,8 +4,15 @@
 import type { TrainingSession } from "../storage/db";
 import { allTrainingSessions } from "../storage/training";
 import { formatTime } from "../timer/format";
-import { pllStats } from "../training/pll-run";
+import { pllStats, successRate } from "../training/pll-run";
 import { h } from "./dom";
+import type { PllStat } from "../training/pll-run";
+
+/** Case « Réussite » : pourcentage coloré (gris si trop peu de passages). */
+function rateCell(s: PllStat): HTMLElement {
+  const { rate, tone } = successRate(s);
+  return h("td", { class: `rate rate-${tone}` }, `${Math.round(rate * 100)} %`);
+}
 import { sec } from "./solve-summary";
 
 const DATE = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -46,12 +53,13 @@ function detailOf(s: TrainingSession): HTMLElement {
     return h(
       "table",
       { class: "warmup-table" },
-      h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Sans erreur"), h("th", {}, "Avec erreurs"), h("th", {}, "Temps moyen")),
+      h("tr", {}, h("th", {}, "PLL"), h("th", {}, "Réussite"), h("th", {}, "Sans erreur"), h("th", {}, "Avec erreurs"), h("th", {}, "Temps moyen")),
       ...pllStats(s.passes).map((p) =>
         h(
           "tr",
-          { class: p.withErrors > 0 ? "slowest" : "" },
+          {},
           h("td", {}, `${p.id}-perm`),
+          rateCell(p),
           h("td", {}, String(p.clean)),
           h("td", {}, String(p.withErrors)),
           h("td", {}, p.cleanTimeMs === null ? "–" : sec(p.cleanTimeMs)),

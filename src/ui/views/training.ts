@@ -5,7 +5,7 @@
 
 import type { View } from "../../app/router";
 import { cubeFacelets, cubeStatus, onCubeEvent, resyncCube } from "../../ble/cube-service";
-import { mainAlg } from "../../cube/case-algs";
+import { mainAlg, myAlgs } from "../../cube/case-algs";
 import { PLL_CASES } from "../../cube/cases";
 import type { TrainingItem } from "../../storage/db";
 import { applyAlg, type Face } from "../../cube/facelets";
@@ -87,7 +87,7 @@ async function pllChoices(): Promise<PllChoice[]> {
   const [statuses, algs] = await Promise.all([getSetting("caseStatus"), getSetting("caseAlgs")]);
   return PLL_CASES.flatMap((c) => {
     const status = statuses[c.id];
-    return status === "known" || status === "learning" ? [{ id: c.id, status, alg: mainAlg(c, algs) }] : [];
+    return status === "known" || status === "learning" ? [{ id: c.id, status, alg: mainAlg(c, algs), algs: myAlgs(c, algs) }] : [];
   });
 }
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SOLVED, applyAlg, applyMove } from "../cube/facelets";
-import { PLL_CASES } from "../cube/cases";
+import { PLL_CASES, checkCaseAlg } from "../cube/cases";
 import { suggestedAlgs } from "../cube/case-algs";
 import { physicalQuarters, switchFrame } from "../cube/setup";
-import { PllRunTracker, pllStats } from "./pll-run";
+import { PllRunTracker, groupErrors, markPlayed, pllStats, successRate, type ErrorGroup, type PllDone } from "./pll-run";
 import { holdingRotation, type Holding } from "./warmup";
 
 const scrambled = applyAlg(SOLVED, "R U2 F' L D' B2 R' U F2 D L' B U2");
@@ -46,7 +46,7 @@ describe("toutes mes PLL", () => {
     expect(tracker.done.map((d) => d.extra)).toEqual([0, 0, 0]); // le U' d'après le T compte comme AUF du Ja
   });
 
-  it("erreur, retour à l'état d'avant, puis la PLL : reconnue, la tentative ratée compte en erreurs", () => {
+  it("erreur, retour à l'état d'avant, puis la PLL : reconnue, le faux départ ne compte pas en erreurs", () => {
     const t = alg("T");
     const tracker = new PllRunTracker({ T: t }, scrambled);
     const moves = cube(t);
@@ -61,7 +61,7 @@ describe("toutes mes PLL", () => {
     expect(events.at(-1)).toEqual({ kind: "back" });
     expect(tracker.done).toEqual([]);
     expect(play(tracker, state, moves).found).toEqual(["T"]);
-    expect(tracker.done[0].extra).toBe(12);
+    expect(tracker.done[0]).toMatchObject({ extra: 0, moves: moves.length });
   });
 
   it("mouvements en trop comptés, puis bilan par PLL", () => {
@@ -69,10 +69,12 @@ describe("toutes mes PLL", () => {
     const tracker = new PllRunTracker({ T: t }, scrambled);
     const moves = cube(t);
     const { state } = play(tracker, scrambled, [...moves.slice(0, 3), "F", "F'", ...moves.slice(3)]);
-    expect(tracker.done).toEqual([
+    expect(tracker.done).toMatchObject([
       // Mouvements faits écrits comme le joueur tient le cube (jaune en haut) : le F F' apparaît.
       { id: "T", moves: moves.length + 2, extra: 2, expected: t, played: "R U R' F F' U' R' F R2 U' R' U' R U R' F'" },
     ]);
+    // … et repéré comme en trop.
+    expect(tracker.done[0].marks!.filter((m) => m.kind === "extra").map((m) => m.text)).toEqual(["F", "F'"]);
     play(tracker, state, moves);
     expect(pllStats(tracker.done)).toEqual([{ id: "T", count: 2, clean: 1, withErrors: 1, extra: 2, moves: 2 * moves.length + 2, cleanTimeMs: null }]);
     // Une erreur énorme ne pèse pas plus qu'une petite : on trie par passages ratés.
@@ -115,13 +117,13 @@ describe("toutes mes PLL", () => {
     expect(tracker.since).toBe(0);
   });
 
-  it("R4 = terminer ; tentative ratée gardée pour l'affichage", () => {
+  it("R4 = terminer ; faux départ gardé pour l'affichage, aller-retour oublié", () => {
     const t = alg("T");
     const tracker = new PllRunTracker({ T: t }, scrambled);
-    // Début raté (R U R'), défait (R U' R'), puis la T.
-    let { state } = play(tracker, scrambled, cube("R U R' R U' R'"));
+    // Aller-retour (B B'), début raté (R U R'), défait (R U' R'), puis la T.
+    let { state } = play(tracker, scrambled, cube("B B' R U R' R U' R'"));
     ({ state } = play(tracker, state, cube(t)));
-    expect(tracker.done[0]).toMatchObject({ id: "T", extra: 6, failed: "R U R' R U' R'", played: t });
+    expect(tracker.done[0]).toMatchObject({ id: "T", extra: 0, falseStart: "R U R' R U' R'", played: t });
     let e = null;
     for (const m of cube("R R R R")) {
       state = applyMove(state, m);
@@ -153,11 +155,103 @@ describe("toutes mes PLL", () => {
     const first = run(tperm, 100);
     expect(first?.kind === "pll" && first.done.timeMs).toBe((tperm.length - 1) * 100);
     // Second passage, avec une erreur : son temps n'entre pas dans la moyenne.
-    const second = run(["R", "R'", ...tperm], 300);
+    const second = run([...tperm.slice(0, 3), "F", "F'", ...tperm.slice(3)], 300);
     expect(second?.kind === "pll" && second.done.extra).toBe(2);
     const third = run(tperm, 200);
     expect(third?.kind).toBe("pll");
     const [stat] = pllStats(tracker.done);
     expect(stat.cleanTimeMs).toBe(((tperm.length - 1) * 100 + (tperm.length - 1) * 200) / 2);
+  });
+
+  it("réussite : vert ≥ 90 %, orange ≥ 70 %, rouge en dessous, gris avec moins de 3 passages", () => {
+    expect(successRate({ clean: 20, count: 22 })).toEqual({ rate: 20 / 22, tone: "ok" });
+    expect(successRate({ clean: 8, count: 10 }).tone).toBe("warn");
+    expect(successRate({ clean: 6, count: 10 }).tone).toBe("bad");
+    expect(successRate({ clean: 1, count: 2 }).tone).toBe("few");
+  });
+});
+
+describe("mouvements faits comparés à la formule", () => {
+  const show = (marks: { text: string; kind: string }[]) => marks.map((m) => (m.kind === "ok" ? m.text : `[${m.kind}:${m.text}]`)).join(" ");
+  const t = "R U R' U' R' F R2 U' R' U' R U R' F'";
+
+  it("formule faite proprement : rien en trop", () => {
+    expect(show(markPlayed(t, cube(t)))).toBe(t);
+  });
+
+  it("cube tenu autrement : lettres du joueur, pas d'erreur ; AUF à part", () => {
+    expect(show(markPlayed(t, cube(`U ${t} U'`, { up: "F", front: "D" })))).toBe(`[auf:U] ${t} [auf:U']`);
+  });
+
+  it("mouvements en trop repérés", () => {
+    expect(show(markPlayed(t, cube("R U R' U' R' F R R R R' U' R' U' R U R' F'")))).toBe("R U R' U' R' F R2 [extra:R] [extra:R'] U' R' U' R U R' F'");
+  });
+
+  it("demi-tour fait dans l'autre sens, M2 dans n'importe quel ordre", () => {
+    const u = "M2 U M U2 M' U M2";
+    expect(show(markPlayed("R U2 R'", cube("R U' U' R'")))).toBe("R U2 R'");
+    expect(markPlayed(u, cube("L2 R2 U M U' U' M' U R2 L2")).every((m) => m.kind === "ok")).toBe(true);
+  });
+});
+
+describe("autres formules", () => {
+  it("formule suggérée autre que la mienne : comparée à celle-là, sans erreur", () => {
+    const ja = PLL_CASES.find((c) => c.id === "Ja")!;
+    const [std, other] = suggestedAlgs(ja);
+    expect(other).toBeDefined();
+    const tracker = new PllRunTracker({ Ja: [std] }, scrambled);
+    play(tracker, scrambled, cube(other));
+    expect(tracker.done[0]).toMatchObject({ id: "Ja", extra: 0, expected: other });
+    expect(tracker.done[0].other).toBeUndefined();
+  });
+
+  it("formule inconnue : erreur, écrite jaune en haut (AUF retirés) ; ajoutée, elle devient connue", () => {
+    // Ua en Anti-Sune + Sune : aucune formule suggérée ne lui ressemble.
+    const unknown = "R' U' R U' R' U2 R U R U R' U R U2 R'";
+    // Tenue réglée blanc en haut, cube tenu jaune en haut : la formule est quand même lisible.
+    const tracker = new PllRunTracker({}, scrambled, { up: "D", front: "F" });
+    const { state } = play(tracker, scrambled, cube(`U ${unknown}`));
+    const d = tracker.done[0];
+    expect(d).toMatchObject({ id: "Ua", other: unknown });
+    expect(d.extra).toBeGreaterThan(0);
+    expect(checkCaseAlg(PLL_CASES.find((c) => c.id === "Ua")!, d.other!).ok).toBe(true);
+    tracker.addAlg(d.id, d.other!, true);
+    play(tracker, state, cube(unknown));
+    expect(tracker.done[1]).toMatchObject({ id: d.id, extra: 0, expected: d.other });
+    expect(tracker.done[1].other).toBeUndefined();
+  });
+});
+
+describe("erreurs du bilan", () => {
+  const t = "R U R' U' R' F R2 U' R' U' R U R' F'";
+  const pass = (moves: string): PllDone => {
+    const marks = markPlayed(t, cube(moves));
+    return { id: "T", moves: 0, extra: marks.filter((m) => m.kind === "extra").length, expected: t, marks };
+  };
+  const show = (g: ErrorGroup) => g.marks!.map((m) => (m.kind === "extra" ? `[${m.text}]` : m.text)).join(" ");
+
+  it("même erreur au même endroit regroupée ; les autres à part", () => {
+    const err = "R U R' U' R' F R2 R R' U' R' U' R U R' F'";
+    const { frequent, isolated } = groupErrors([
+      pass(err),
+      pass(t),
+      pass(`U ${err}`), // AUF en plus : même erreur
+      pass("R U R' U' R' F R2 U' R' U' R U F F' R' F'"),
+      { id: "Ua", moves: 0, extra: 3, expected: "…", other: "R U R'" },
+    ]);
+    expect(frequent).toHaveLength(1);
+    expect(frequent[0].count).toBe(2);
+    expect(show(frequent[0])).toBe("R U R' U' R' F R2 [R] [R'] U' R' U' R U R' F'");
+    expect(isolated.map((g) => g.other ?? show(g))).toEqual(["R U R' U' R' F R2 U' R' U' R U [F] [F'] R' F'", "R U R'"]);
+  });
+});
+
+describe("AUF hésitant", () => {
+  it("U2 U' avant la formule : pas d'erreur", () => {
+    const na = alg("Na");
+    const tracker = new PllRunTracker({ Na: na }, scrambled);
+    play(tracker, scrambled, cube(`U2 U' ${na}`));
+    expect(tracker.done[0]).toMatchObject({ id: "Na", extra: 0 });
+    expect(tracker.done[0].marks!.filter((m) => m.kind === "auf").map((m) => m.text)).toEqual(["U2", "U'"]);
   });
 });

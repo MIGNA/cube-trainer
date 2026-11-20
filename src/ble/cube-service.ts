@@ -47,6 +47,27 @@ export function serialOrder(model: number, serial: number): "same" | "ahead" | "
 /** Numéro d'ordre du dernier mouvement compté dans `cubeFacelets` (null = inconnu). */
 let modelSerial: number | null = null;
 
+/**
+ * État reçu en avance sur les mouvements : des mouvements ont été perdus en route (souvent
+ * pendant un M, deux faces qui tournent ensemble). La bibliothèque GAN les redemande au cube
+ * et les envoie un peu plus tard ; sans attente, ils arriveraient « déjà comptés » et ne
+ * seraient jamais transmis (un exercice verrait l'état changer sans les mouvements).
+ * L'état est donc gardé jusqu'à l'arrivée des mouvements manquants, ou MISSING_WAIT_MS.
+ */
+let pending: { event: Extract<CubeEvent, { type: "facelets" }>; timer: number } | null = null;
+const MISSING_WAIT_MS = 1500;
+
+function dropPending(): void {
+  if (pending) clearTimeout(pending.timer);
+  pending = null;
+}
+
+function flushPending(): void {
+  const p = pending;
+  dropPending();
+  if (p) handleEvent(p.event, true);
+}
+
 const listeners = new Set<CubeListener>();
 let current: SmartCube | null = null;
 let unsubscribeCurrent: (() => void) | null = null;
@@ -65,12 +86,14 @@ export function getCube(): SmartCube | null {
 /** Redemande l'état au cube ; la réponse est acceptée quel que soit son numéro d'ordre. */
 export async function resyncCube(): Promise<void> {
   modelSerial = null;
+  dropPending();
   await current?.requestFacelets();
 }
 
 /** Déclare le cube résolu (le cube remet son compteur à zéro). */
 export async function markCubeSolved(): Promise<void> {
   modelSerial = null;
+  dropPending();
   await current?.markSolved();
 }
 
@@ -78,7 +101,7 @@ export function isWebBluetoothAvailable(): boolean {
   return "bluetooth" in navigator;
 }
 
-function handleEvent(event: CubeEvent): void {
+function handleEvent(event: CubeEvent, held = false): void {
   const status = cubeStatus.get();
   if (event.type === "move") {
     // Le cube envoie parfois un mouvement déjà compté dans l'état qu'il a renvoyé
@@ -91,6 +114,13 @@ function handleEvent(event: CubeEvent): void {
     const facelets = cubeFacelets.get();
     if (facelets) cubeFacelets.set(applyMove(facelets, event.move));
   } else if (event.type === "facelets") {
+    // Mouvements manquants (numéro d'ordre de l'état en avance) : on attend qu'ils arrivent.
+    if (!held && event.serial !== undefined && modelSerial !== null && serialOrder(modelSerial, event.serial) === "ahead") {
+      if (import.meta.env.DEV) console.log(`[cube] état n°${event.serial} en avance (modèle n°${modelSerial}) : mouvements manquants attendus`);
+      dropPending();
+      pending = { event, timer: window.setTimeout(flushPending, MISSING_WAIT_MS) };
+      return;
+    }
     // État en retard sur les mouvements déjà reçus : on le laisse de côté.
     if (event.serial !== undefined && modelSerial !== null && serialOrder(modelSerial, event.serial) === "behind") {
       if (import.meta.env.DEV) console.log(`[cube] état n°${event.serial} en retard (modèle n°${modelSerial}) : ignoré`);
@@ -113,16 +143,20 @@ function handleEvent(event: CubeEvent): void {
     unsubscribeCurrent = null;
     current = null;
     modelSerial = null;
+    dropPending();
     cubeFacelets.set(null);
     syncMismatch.set(false);
     cubeStatus.set({ state: "disconnected" });
   }
   for (const l of listeners) l(event);
+  // Mouvements manquants tous arrivés : l'état mis en attente peut passer.
+  if (event.type === "move" && pending && modelSerial !== null && serialOrder(modelSerial, pending.event.serial!) !== "ahead") flushPending();
 }
 
 async function attach(cube: SmartCube): Promise<void> {
   current = cube;
   modelSerial = null;
+  dropPending();
   unsubscribeCurrent = cube.subscribe(handleEvent);
   // Le faux cube clavier n'a pas de capteur : on le suppose résolu au départ.
   cubeFacelets.set(cube.kind === "keyboard" ? SOLVED : null);
